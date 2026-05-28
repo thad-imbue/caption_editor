@@ -8,7 +8,7 @@ dependencies = [
     "librosa>=0.11.0",
     "megatron-core>=0.10.0",
     "nemo-toolkit[asr]>=2.5.0",
-    "numpy>=2.0,<2.4", # numba requires numpy < 2.4
+    "numpy>=2.0",
     "pandas>=2.0.0",
     "pydantic>=2.12.3",
     "scikit-learn>=1.6.0",
@@ -17,7 +17,12 @@ dependencies = [
     "tqdm>=4.66.0",
     "torch>=2.9.0",
     "torchaudio>=2.9.0",
-    "transformers>=4.53.0,<4.54",
+    # `nemo-toolkit[asr]>=2.7.x` hard-pins `transformers>=4.57,<4.58` —
+    # we can't move ahead of that band without giving up NeMo (and
+    # hence the Parakeet ASR path). The earlier `<4.54` ceiling here
+    # was redundant with nemo's pin AND blocked transitive updates,
+    # so it's gone; the resolver now picks 4.57.x by following nemo.
+    "transformers>=4.53.0",
     "typer>=0.20.0",
     # Diarization dependencies
     "pyannote-audio>=4.0.0",
@@ -52,12 +57,17 @@ dev = [
 # Update this date periodically (it's not rolling — it's a fixed point in time).
 exclude-newer = "2026-05-21T00:00:00Z"
 
-# Override nemo-toolkit's numpy constraint to allow numpy 2.x
-# nemo-toolkit works with numpy 2.x despite the conservative <2.0 constraint
-# Override torchcodec to only install on platforms with available wheels
-# pyannote-audio 4.0+ made torchcodec optional and will fall back to torchaudio
+# Override nemo-toolkit's conservative `numpy<2.0` constraint — it
+# works fine on numpy 2.x and the project depends on numpy 2.x for
+# torch interop. Upper bound intentionally absent: previously pinned
+# `<2.4` because numba lagged, but numba 0.65+ supports the newer
+# numpy ABI so we let the resolver pick the latest.
+#
+# Override torchcodec to only install on platforms with prebuilt
+# wheels. pyannote-audio 4.0+ made torchcodec optional and falls back
+# to torchaudio when missing — see diarization/cli.py.
 override-dependencies = [
-    "numpy>=2.0,<2.4",
+    "numpy>=2.0",
     "torchcodec>=0.6.0; (sys_platform == 'darwin') or (sys_platform == 'win32') or (sys_platform == 'linux' and platform_machine == 'x86_64')"
 ]
 
