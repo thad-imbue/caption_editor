@@ -45,6 +45,9 @@ exports_files([
     "playwright.config.ts",
     "eslint.config.js",
     "index.html",
+    # Consumed by //tools/bazel:asr_commit_hash_consistency_test —
+    # there's no electron/BUILD.bazel so the file is in this package.
+    "electron/constants.ts",
 ])
 
 # -----------------------------------------------------------------------------
@@ -156,10 +159,16 @@ eslint_bin.eslint_test(
 # -----------------------------------------------------------------------------
 # e2e_playwright stays non-hermetic (see run_playwright.sh for why) so
 # it doesn't pull the bazel-linked `:node_modules` — only the source
-# files whose changes should re-run it.
+# files whose changes should re-run it. `package-lock.json` IS in the
+# data set as the cache-key proxy for the source-tree `node_modules/`
+# (which `.bazelignore` keeps invisible to Bazel): if the lockfile
+# moves, npm install would change node_modules and the e2e suite
+# should re-run. Without this, an `npm update` that bumps a dep
+# without touching `package.json` would silently get a cache hit.
 _E2E_DATA = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS + [
     "playwright.config.ts",
     "index.html",
+    "package-lock.json",
     ":test_data",
 ]
 
@@ -227,6 +236,7 @@ test_suite(
         ":ts_eslint",
         ":ts_typecheck",
         ":ts_vitest_unit",
+        "//tools/bazel:asr_commit_hash_consistency_test",
         "//transcribe:asr_results_to_captions_post_processing_pipeline_test",
         "//transcribe:asr_results_to_captions_test",
         "//transcribe:bulk_cli_test",

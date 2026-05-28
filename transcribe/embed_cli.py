@@ -39,10 +39,10 @@ def compute_embedding(
     # pyannote expects (channel, time) shape
     if audio.ndim == 1:
         # Mono audio - add channel dimension
-        waveform = torch.from_numpy(audio).unsqueeze(0)
+        waveform = torch.from_numpy(audio).unsqueeze(0)  # pyright: ignore[reportPrivateImportUsage]
     else:
         # Multi-channel - transpose to (channel, time)
-        waveform = torch.from_numpy(audio.T)
+        waveform = torch.from_numpy(audio.T)  # pyright: ignore[reportPrivateImportUsage]
 
     # Create audio dict for pyannote
     audio_dict = {

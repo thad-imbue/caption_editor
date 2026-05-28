@@ -88,7 +88,7 @@ class VibeVoiceASR:
         print(f"[{time.strftime('%H:%M:%S')}] loading VibeVoice model (9B, bf16)…")
         self.model = VibeVoiceAsrForConditionalGeneration.from_pretrained(
             MODEL_ID,
-            dtype=torch.bfloat16,
+            dtype=torch.bfloat16,  # pyright: ignore[reportPrivateImportUsage]
             device_map="cuda",
             # The VibeVoiceAcousticTokenizerEncoderModel sub-module hasn't been
             # ported to sdpa as of transformers main 2026-04. Using "eager"
@@ -325,9 +325,9 @@ class VibeVoiceASR:
             return
 
         flat = [t for i in keep_indices for t in token_seqs[i]]
-        targets = torch.tensor([flat], dtype=torch.int32, device="cuda")
+        targets = torch.tensor([flat], dtype=torch.int32, device="cuda")  # pyright: ignore[reportPrivateImportUsage]
         wave = (
-            torch.from_numpy(np.asarray(audio_16k, dtype=np.float32))
+            torch.from_numpy(np.asarray(audio_16k, dtype=np.float32))  # pyright: ignore[reportPrivateImportUsage]
             .unsqueeze(0)
             .to("cuda")
         )

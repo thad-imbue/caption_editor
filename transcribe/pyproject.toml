@@ -50,7 +50,7 @@ dev = [
 [tool.uv]
 # 7-day dependency cooldown: only allow package versions published at least 7 days ago.
 # Update this date periodically (it's not rolling — it's a fixed point in time).
-exclude-newer = "2026-03-30T00:00:00Z"
+exclude-newer = "2026-05-21T00:00:00Z"
 
 # Override nemo-toolkit's numpy constraint to allow numpy 2.x
 # nemo-toolkit works with numpy 2.x despite the conservative <2.0 constraint

@@ -2,6 +2,12 @@ load("@py_pip//:requirements.bzl", "all_requirements", "requirement")
 load("@rules_python//python:defs.bzl", "py_library")
 load("//tools/bazel:pytest.bzl", "transcribe_pytest")
 
+# Consumed by //tools/bazel:asr_commit_hash_consistency_test as `data`.
+exports_files(
+    ["constants.py"],
+    visibility = ["//visibility:public"],
+)
+
 # `imports = ["."]` puts this directory on PYTHONPATH for downstream
 # py_test targets, mirroring the flat-package layout the transcribe
 # package already uses (modules import each other by bare name:

@@ -2,6 +2,8 @@
 # sh_test target in this repo (see //:BUILD.bazel and friends). Each
 # downstream target is responsible for listing its own `data` and
 # tags; this file just publishes the script.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 exports_files(
     [
         "run_in_workspace.sh",
@@ -10,6 +12,23 @@ exports_files(
         "pytest_main.py",
     ],
     visibility = ["//visibility:public"],
+)
+
+# Asserts that the ASR_COMMIT_HASH literal in electron/constants.ts
+# matches the one in transcribe/constants.py. Bumped together in the
+# two-commit release dance documented in CLAUDE.md → "Version
+# Management"; this test makes drift loud at `bazel test //...` time
+# rather than weeks later when someone notices `.captions_json5` blob
+# URLs pointing at a different commit than what `uvx` actually fetched.
+sh_test(
+    name = "asr_commit_hash_consistency_test",
+    size = "small",
+    srcs = ["check_asr_commit_hash.sh"],
+    data = [
+        "//:electron/constants.ts",
+        "//transcribe:constants.py",
+    ],
+    deps = [":runfiles"],
 )
 
 # Shared runfiles dep for the wrapper script. Re-exported as an alias
