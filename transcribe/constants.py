@@ -16,4 +16,4 @@ MODEL_VOXCELEB = "pyannote/wespeaker-voxceleb-resnet34-LM"
 # It is used for schema links in `.captions_json5` headers when running this Python
 # package. After a two-step release (version commit A, then “sync hash” commit B), a
 # bare checkout at A still contains the *old* hash here until B; that is expected.
-ASR_COMMIT_HASH = "ba18702e7ffd6871cdff4ce6c7d4a68a35b94481"
+ASR_COMMIT_HASH = "2986a2e3330c839ec45cb12a5c00f0dc24476ac5"
