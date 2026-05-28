@@ -48,10 +48,15 @@ git commit -m "Your message" --trailer "Co-authored-by: Sculptor <sculptor@imbue
 ### Quick Start
 
 ```bash
-# Run all tests
-./scripts/run-all-tests.sh
+# Run all tests (canonical entrypoint — TS + Electron + Python, cached)
+bazelisk test //...
 
-# Run specific suites
+# Coverage
+bazelisk coverage //transcribe/...   # Python lcov at bazel-out/_coverage/_coverage_report.dat
+bazelisk run //:ts_vitest_coverage   # TS unit coverage at coverage/
+bazelisk run //:ts_full_coverage     # TS unit + e2e coverage via vite-plugin-istanbul + nyc
+
+# Inner-loop suites (no Bazel — keep host node_modules / .venv warm)
 npm test                    # Unit tests (watch mode)
 npm run test:unit           # Unit tests (once)
 npm run test:e2e            # E2E tests (auto-builds)

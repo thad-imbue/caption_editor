@@ -27,7 +27,6 @@
     "test:coverage": "npm run test:unit:coverage && npm run test:e2e --reporter=html && npx nyc report --reporter=text --reporter=html",
     "test:build": "vue-tsc && vite build",
     "test:all": "npm run test:unit && npm run test:e2e && npm run test:build",
-    "test:all:complete": "./scripts/run-all-tests.sh",
     "postinstall": "echo 'postinstall complete'"
   },
   "dependencies": {
