@@ -1,0 +1,14 @@
+# pnpm 10+ no longer reads `pnpm.onlyBuiltDependencies` from
+# package.json; this file is its replacement. aspect_rules_js requires
+# every package with a postinstall lifecycle hook to be allowlisted,
+# so changes here may be needed when bumping a dep that adds a hook.
+allowBuilds:
+  electron: true
+  esbuild: true
+  electron-winstaller: true
+  '@parcel/watcher': true
+  app-builder-bin: true
+  fsevents: true
+  nice-napi: true
+  '@swc/core': true
+  '@vue/compiler-vue2': true
