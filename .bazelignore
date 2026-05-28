@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-electron
+playwright-report
+test-results
+transcribe/.venv
+transcribe/__pycache__
+transcribe/transcribe.egg-info
+# `__snapshots__/` IS kept visible — syrupy needs to read .ambr files
+# at test runtime via runfiles, so the glob in //transcribe:BUILD.bazel
+# must see them.

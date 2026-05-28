@@ -1,0 +1,206 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Make package.json available to the workspace-resolution sentinel
+# logic in tools/bazel/run_in_workspace.sh (which uses it via
+# rlocation). Also exported for any downstream genrule that wants the
+# canonical version blob.
+exports_files([
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "vite.config.ts",
+    "vite.electron.config.ts",
+    "playwright.config.ts",
+    "eslint.config.js",
+    "index.html",
+])
+
+# -----------------------------------------------------------------------------
+# Test wrappers
+#
+# Every target below is a thin sh_test that re-execs the existing test
+# command (`npm run test:unit`, `uv run pytest`, ...) inside the source
+# tree. The wrappers are non-hermetic by design: they reuse the
+# developer's already-populated `node_modules/` and `transcribe/.venv/`
+# so Bazel doesn't have to own those toolchains yet.
+#
+# Cache correctness: each target lists its real source inputs as
+# `data`, so Bazel's action cache key changes whenever those files
+# change. The `no-sandbox` tag is required because the script `cd`s
+# into the source tree (which Bazel would otherwise hide behind the
+# sandbox); `external` and `requires-network` mark tests that touch
+# the filesystem / network outside Bazel's view. Filter them out in
+# locked-down CI with `--test_tag_filters=-requires-network`.
+#
+# All wrappers share the same `srcs` (the workspace-cd shim) and pass
+# their command via `args`.
+# -----------------------------------------------------------------------------
+
+# Inputs common to most TS-side suites: anything Vite / Vitest / tsc
+# might read at test time. Globs use `allow_empty = False` so a typo
+# in a path fails loudly rather than silently shrinking the input set.
+# `allow_empty = True` because not every pattern matches today (no
+# .tsx in src/ at the moment) but listing the pattern keeps the glob
+# correct as the codebase grows.
+_TS_SRCS = glob(
+    [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.vue",
+        "src/**/*.css",
+        "electron/**/*.ts",
+    ],
+    allow_empty = True,
+)
+
+_TS_TEST_SRCS = glob(
+    [
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+    ],
+    allow_empty = True,
+)
+
+_TS_CONFIG = [
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "vite.config.ts",
+    "vite.electron.config.ts",
+    "eslint.config.js",
+]
+
+# Shared attrs across every wrapper.
+_WRAPPER_SRCS = ["//tools/bazel:run_in_workspace.sh"]
+_WRAPPER_DEPS = ["//tools/bazel:runfiles"]
+
+# Wrappers reuse the developer's host toolchain (npm, node, npx, uv).
+# Inherit the env vars those tools depend on so they can find their
+# caches under $HOME. PATH is set globally in .bazelrc; HOME is forwarded
+# via test_env there too, but we re-declare env_inherit per-target so
+# each test's env contract is visible at the rule site.
+_HOST_ENV_INHERIT = [
+    "HOME",
+    "PATH",
+]
+
+# -----------------------------------------------------------------------------
+# TypeScript: type-check
+# -----------------------------------------------------------------------------
+sh_test(
+    name = "ts_typecheck",
+    srcs = _WRAPPER_SRCS,
+    args = [
+        "npx",
+        "vue-tsc",
+        "--noEmit",
+    ],
+    data = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS,
+    env_inherit = _HOST_ENV_INHERIT,
+    tags = [
+        "external",
+        "no-sandbox",
+        "requires-network",  # first run may fetch npm pkgs if node_modules missing
+    ],
+    timeout = "long",
+    deps = _WRAPPER_DEPS,
+)
+
+# -----------------------------------------------------------------------------
+# TypeScript: vitest unit tests
+# -----------------------------------------------------------------------------
+sh_test(
+    name = "ts_vitest_unit",
+    srcs = _WRAPPER_SRCS,
+    args = [
+        "npm",
+        "run",
+        "test:unit",
+    ],
+    data = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS,
+    env_inherit = _HOST_ENV_INHERIT,
+    tags = [
+        "external",
+        "no-sandbox",
+        "requires-network",
+    ],
+    timeout = "long",
+    deps = _WRAPPER_DEPS,
+)
+
+# -----------------------------------------------------------------------------
+# ESLint
+# -----------------------------------------------------------------------------
+sh_test(
+    name = "ts_eslint",
+    srcs = _WRAPPER_SRCS,
+    args = [
+        "npx",
+        "eslint",
+        ".",
+    ],
+    data = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS,
+    env_inherit = _HOST_ENV_INHERIT,
+    tags = [
+        "external",
+        "no-sandbox",
+        "requires-network",
+    ],
+    timeout = "moderate",
+    deps = _WRAPPER_DEPS,
+)
+
+# -----------------------------------------------------------------------------
+# Playwright E2E (Electron). Heavy, requires a build + Xvfb on Linux.
+# Tagged `manual` so it's NOT picked up by `bazel test //...` by default
+# — invoke explicitly via `bazel test //:e2e_playwright`. Once we have
+# CI capacity for it, drop the `manual` tag and let it run on tag
+# filters instead.
+# -----------------------------------------------------------------------------
+sh_test(
+    name = "e2e_playwright",
+    srcs = _WRAPPER_SRCS,
+    args = [
+        "npm",
+        "run",
+        "test:e2e",
+    ],
+    data = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS + [
+        "playwright.config.ts",
+        "index.html",
+    ] + glob([
+        "test_data/**",
+    ], allow_empty = True),
+    env_inherit = _HOST_ENV_INHERIT + [
+        "DISPLAY",  # Linux Xvfb
+        "HEADLESS",
+    ],
+    tags = [
+        "external",
+        "manual",
+        "no-sandbox",
+        "requires-network",
+    ],
+    timeout = "eternal",
+    deps = _WRAPPER_DEPS,
+)
+
+# -----------------------------------------------------------------------------
+# Convenience suite: everything in the default `bazel test //...` set.
+# (Manual targets are excluded automatically.) Useful when you want to
+# explicitly trigger just the test layer without globbing the whole
+# repo, e.g. `bazelisk test //:all_tests`.
+# -----------------------------------------------------------------------------
+test_suite(
+    name = "all_tests",
+    tests = [
+        ":ts_eslint",
+        ":ts_typecheck",
+        ":ts_vitest_unit",
+        "//transcribe:asr_results_to_captions_post_processing_pipeline_test",
+        "//transcribe:asr_results_to_captions_test",
+        "//transcribe:captions_json5_lib_test",
+    ],
+)

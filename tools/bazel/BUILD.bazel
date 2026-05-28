@@ -1,0 +1,20 @@
+# The `run_in_workspace.sh` script is referenced as `srcs` by every
+# sh_test target in this repo (see //:BUILD.bazel and friends). Each
+# downstream target is responsible for listing its own `data` and
+# tags; this file just publishes the script.
+exports_files(
+    [
+        "run_in_workspace.sh",
+        "pytest_main.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Shared runfiles dep for the wrapper script. Re-exported as an alias
+# so downstream BUILD files can write `deps = ["//tools/bazel:runfiles"]`
+# instead of hardcoding the bazel_tools label.
+alias(
+    name = "runfiles",
+    actual = "@bazel_tools//tools/bash/runfiles",
+    visibility = ["//visibility:public"],
+)

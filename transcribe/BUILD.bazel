@@ -1,0 +1,160 @@
+load("@py_pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+load("//tools/bazel:pytest.bzl", "transcribe_pytest")
+
+# `imports = ["."]` puts this directory on PYTHONPATH for downstream
+# py_test targets, mirroring the flat-package layout the transcribe
+# package already uses (modules import each other by bare name:
+# `from schema import ...`, not `from transcribe.schema import ...`).
+
+# Cheap subset: pure-Python modules. No torch, nemo, or pyannote at
+# import time. These are the only modules needed by the post-processing
+# / parsing / schema tests.
+py_library(
+    name = "transcribe_lib_cheap",
+    srcs = [
+        "asr_results_to_captions.py",
+        "captions_json5_lib.py",
+        "constants.py",
+        "repo_root.py",
+        "schema.py",
+        "snapshot_test_utils.py",
+    ],
+    imports = ["."],
+    deps = [
+        requirement("json5"),
+        requirement("pydantic"),
+        requirement("syrupy"),
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Heavy subset: pulls torch, pyannote, soundfile, numpy at import time.
+# Only consumed by the `requires-torch`-tagged tests below. Kept here
+# (rather than in a separate sibling package) so the BUILD layout
+# mirrors the source layout: one BUILD file per directory.
+py_library(
+    name = "transcribe_lib_heavy",
+    srcs = [
+        "audio_utils.py",
+        "bulk_cli.py",
+        "embed_cli.py",
+        "recognizer.py",
+        "transcribe_cli.py",
+    ],
+    imports = ["."],
+    deps = [
+        ":transcribe_lib_cheap",
+        requirement("numpy"),
+        requirement("soundfile"),
+        requirement("typer"),
+        requirement("torch"),
+        requirement("pyannote.audio"),
+        requirement("tqdm"),
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# conftest.py imports `repo_root` (a transcribe module) and `syrupy`,
+# so it goes in the cheap library's runfiles via `data`. Listed as a
+# filegroup rather than added to srcs because rules_python doesn't
+# auto-discover conftest in `srcs` — pytest finds it by directory.
+filegroup(
+    name = "conftest",
+    srcs = ["conftest.py"],
+    visibility = ["//visibility:public"],
+)
+
+_CHEAP_TEST_DATA = [
+    ":conftest",
+    "pytest.ini",
+] + glob([
+    "__snapshots__/**",
+    "test_fixtures/**",
+], allow_empty = True)
+
+_CHEAP_TEST_DEPS = [
+    ":transcribe_lib_cheap",
+    requirement("pytest"),
+    requirement("syrupy"),
+]
+
+# -----------------------------------------------------------------------------
+# Cheap tests — no torch/nemo/pyannote.
+# -----------------------------------------------------------------------------
+
+transcribe_pytest(
+    name = "captions_json5_lib_test",
+    test_file = "captions_json5_lib_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _CHEAP_TEST_DEPS,
+)
+
+transcribe_pytest(
+    name = "asr_results_to_captions_test",
+    test_file = "asr_results_to_captions_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _CHEAP_TEST_DEPS,
+)
+
+transcribe_pytest(
+    name = "asr_results_to_captions_post_processing_pipeline_test",
+    test_file = "asr_results_to_captions_post_processing_pipeline_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _CHEAP_TEST_DEPS,
+)
+
+# -----------------------------------------------------------------------------
+# Heavy tests — `manual` so default `bazel test //...` skips them on
+# cold caches. Drop `manual` once pip.parse reliably materializes torch
+# + audio wheels on your dev + CI hosts.
+# -----------------------------------------------------------------------------
+
+_HEAVY_TEST_DEPS = _CHEAP_TEST_DEPS + [
+    ":transcribe_lib_heavy",
+    requirement("numpy"),
+    requirement("soundfile"),
+    requirement("typer"),
+]
+
+_HEAVY_TAGS = ["manual", "requires-torch"]
+
+transcribe_pytest(
+    name = "bulk_cli_test",
+    test_file = "bulk_cli_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _HEAVY_TEST_DEPS,
+    tags = _HEAVY_TAGS,
+)
+
+transcribe_pytest(
+    name = "embed_cli_test",
+    test_file = "embed_cli_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _HEAVY_TEST_DEPS,
+    tags = _HEAVY_TAGS,
+)
+
+transcribe_pytest(
+    name = "transcribe_cli_test",
+    test_file = "transcribe_cli_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _HEAVY_TEST_DEPS,
+    tags = _HEAVY_TAGS,
+)
+
+transcribe_pytest(
+    name = "transcribe_cli_apollo_test",
+    test_file = "transcribe_cli_apollo_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _HEAVY_TEST_DEPS,
+    tags = _HEAVY_TAGS,
+)
+
+transcribe_pytest(
+    name = "remux_mp3_test",
+    test_file = "remux_mp3_test.py",
+    data = _CHEAP_TEST_DATA,
+    deps = _HEAVY_TEST_DEPS,
+    tags = _HEAVY_TAGS,
+)

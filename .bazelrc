@@ -1,0 +1,53 @@
+common --enable_bzlmod
+common --noenable_workspace
+test --test_output=errors
+
+# Every bazel action inherits a fixed PATH, not the developer's host
+# PATH. The sh_test wrappers in this repo shell out to `npm`, `npx`,
+# `uv`, `node`, `python3`, etc., so those tools must be installed
+# somewhere on this PATH. `/opt/homebrew/bin` covers the brew defaults
+# on Apple Silicon, `/usr/local/bin` covers Intel brew + node from
+# nodejs.org installers, and `/usr/bin:/bin` covers the system tools.
+#
+# We deliberately do NOT inherit the caller's $PATH via
+# --action_env=PATH (no value). Forwarded env vars contribute to the
+# action cache key — any caller-side variance (direnv on/off, different
+# `which npm` paths between agent sessions vs interactive shells)
+# would invalidate every cached test action.
+build --action_env=PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+build --host_action_env=PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+test --test_env=PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+
+# If your `uv` (or any other dev tool) lives outside the PATH above —
+# for instance under `~/.local/bin`, where the standard uv installer
+# drops it — add an override in `.bazelrc.user`, e.g.:
+#
+#   build --action_env=PATH=/Users/you/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+#   test  --test_env=PATH=/Users/you/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+#
+# `.bazelrc.user` is untracked and try-imported below; the per-user
+# PATH keeps the tracked file portable across machines and CI.
+
+# Several wrappers (transcribe pytest, electron-builder notarization)
+# expect a real $HOME so they can find `~/.cache/uv`, `~/.npm`, the
+# macOS keychain, etc. Without this they would point at the per-action
+# sandbox tmpdir and re-download multi-GB ML wheels on every run.
+build --action_env=HOME
+test --test_env=HOME
+
+# Stamp builds with git hash + describe via tools/workspace_status.sh.
+# Consumers read STABLE_GIT_HASH / STABLE_GIT_DESCRIBE from
+# bazel-out/stable-status.txt.
+build --workspace_status_command=tools/workspace_status.sh
+build --stamp
+
+# Shared content-addressed cache across checkouts. Bazel's per-workspace
+# action cache lives under `_bazel_<user>/<md5-of-workspace-path>/`, so
+# two checkouts at different paths (e.g. ~/src/caption-editor vs a
+# Sculptor clone under ~/.sculptor/workspaces/.../code) do not share
+# hits. The disk cache is keyed by action hash and IS shared.
+build --disk_cache=~/Library/Caches/bazel-disk-cache
+test  --disk_cache=~/Library/Caches/bazel-disk-cache
+
+# Allow developer-local overrides without touching tracked config.
+try-import %workspace%/.bazelrc.user

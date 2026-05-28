@@ -76,3 +76,11 @@ models/
 .cache/huggingface/
 .envrc.private
 .DS_Store
+
+# Bazel
+bazel-bin
+bazel-out
+bazel-testlogs
+bazel-caption_editor
+bazel-code
+.bazelrc.user
