@@ -3,10 +3,10 @@
  */
 
 // App Information
-export const APP_VERSION = '1.6.0'
+export const APP_VERSION = '1.6.1'
 
 // AI Transcription (uvx / transcribe)
-export const UV_VERSION = '0.10.4'
+export const UV_VERSION = '0.11.15'
 // Revision passed to `uvx …@${ASR_COMMIT_HASH}` (must exist on GitHub). Also used for
 // `.captions_json5` schema blob URLs; keep identical to `ASR_COMMIT_HASH` in
 // transcribe/constants.py.
