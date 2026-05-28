@@ -2139,17 +2139,6 @@
             "https://files.pythonhosted.org/packages/9e/b2/451be65c13d2d69b7601eded7ddd3f150884486715a9b3a705ffb08d0177/mediapy-1.1.6.tar.gz": "9f44b760400964d8bea5121a213f94dc9a225d026d6a819901283a695e585634",
             "https://files.pythonhosted.org/packages/e3/a0/0d55c59ea8a5f1b13b3eb931e1c0eab9c2a07322cad79cb51a596d2d2a5c/mediapy-1.1.6-py3-none-any.whl": "c74370808b445666f95272bfdf0eb5707a43b7e05e5527f2dd0830e6892f976f"
           },
-          "megatron-core": {
-            "https://files.pythonhosted.org/packages/05/04/d70af2e3f2fc20687a7cb6bfc70900228e8a4da187c33ce436ef9b11fa8e/megatron_core-0.16.1-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl": "8f5ce1a8660f947925b8d7d070566d89163ea9ec2fd00ffd19a31ead8243ce30",
-            "https://files.pythonhosted.org/packages/0e/9e/a14599528cd2c3162ee3ba6c372266b588a422f9ef8941e7d2d35946c67f/megatron_core-0.16.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl": "3fb26cb407aa3c4b609c08664022c08146f1648b3d6f2ef2bbe9d3b1294ace61",
-            "https://files.pythonhosted.org/packages/15/75/ea59d5767588fdfab3dab4028d7115ce63c81ab42e7c10f16cd7b1978d93/megatron_core-0.16.1-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl": "fac268d9f4b0153388a75f584d53796686f6327702c2b8b1c91077e60765cff3",
-            "https://files.pythonhosted.org/packages/31/07/36e7eaa96fe01ad412a0e468c8cff904d8d0c9b0939baf5cfd67f903e471/megatron_core-0.16.1-cp310-cp310-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl": "b17840ea891a8b109134772f90dac080316ddf787d26ce9d4cacdeb466ccd5ce",
-            "https://files.pythonhosted.org/packages/e0/fd/2c3a62d09e2afca4cef6171e6f6aae3d0a704d5929690a7ee44fae65d538/megatron_core-0.16.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl": "38f6bef63cd4ebc4c39c1eccbaf578596accba5c47d012faffa0670913aec131",
-            "https://files.pythonhosted.org/packages/e3/83/938642610f0b5ba1ab4d4a256d5a6525eaed216efdc56e092a7b121685f6/megatron_core-0.16.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl": "de0ec63a1c413124a4214b341754335db865aaf75db59823efedc70b50d9a11c",
-            "https://files.pythonhosted.org/packages/e3/ee/2cd3db404122708f957f138fe1fa94e7f616686d49323da4e63a33d5c140/megatron_core-0.16.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl": "c96f37f8a630fed5fb7c132d8088da176bf8e6f9345c23532493af0f9ba214ba",
-            "https://files.pythonhosted.org/packages/e5/93/b8725486a5d2cda20f003d26fd8c777fe95451303bd661cedc37d0d005eb/megatron_core-0.16.1.tar.gz": "86522feacfa5ef384a6ac627e7d88cf4866811aed3bc9b6c2a85cbf15cff91a3",
-            "https://files.pythonhosted.org/packages/e9/65/f95666a61e569f8460ecf058af05fd4af2c7692724ceaa4fe7b2c53f2040/megatron_core-0.16.1-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl": "dab8b9a16bff77f5677e5afbcdb9e4f5c7f794d34dedd2ea9902e4bcc878d417"
-          },
           "ml-dtypes": {
             "https://files.pythonhosted.org/packages/04/f9/067b84365c7e83bda15bba2b06c6ca250ce27b20630b1128c435fb7a09aa/ml_dtypes-0.5.4-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl": "805cef3a38f4eafae3a5bf9ebdcdb741d0bcfd9e1bd90eb54abd24f928cd2465",
             "https://files.pythonhosted.org/packages/0e/4a/c27b42ed9b1c7d13d9ba8b6905dece787d6259152f2309338aed29b2447b/ml_dtypes-0.5.4.tar.gz": "8ab06a50fb9bf9666dd0fe5dfb4676fa2b0ac0f31ecff72a6c3af8e22c063453",
@@ -4864,7 +4853,6 @@
           "matplotlib_inline": "/simple/matplotlib-inline/",
           "mdurl": "/simple/mdurl/",
           "mediapy": "/simple/mediapy/",
-          "megatron_core": "/simple/megatron-core/",
           "ml_dtypes": "/simple/ml-dtypes/",
           "modal": "/simple/modal/",
           "more_itertools": "/simple/more-itertools/",

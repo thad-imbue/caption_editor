@@ -4,6 +4,30 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 # logic in tools/bazel/run_in_workspace.sh (which uses it via
 # rlocation). Also exported for any downstream genrule that wants the
 # canonical version blob.
+# Static test fixtures referenced by heavy py_test targets via
+# `repo_root.REPO_ROOT / "test_data" / "..."`. Bazel materializes them
+# into the test's runfiles tree at `_main/test_data/...`, so the
+# `Path(__file__).parent.parent` math in transcribe/repo_root.py
+# resolves correctly inside the sandbox. The big files (mp3, wav,
+# flac) live next to lightweight fixtures; we glob them all in one
+# filegroup rather than enumerating, since they don't change often
+# and the cost is just symlinking.
+filegroup(
+    name = "test_data",
+    srcs = glob(
+        ["test_data/**"],
+        # `test_data/temp/` and `test_data/temp-*/` are gitignored
+        # scratch dirs that pytest writes into. Excluding keeps the
+        # filegroup deterministic.
+        exclude = [
+            "test_data/temp/**",
+            "test_data/temp-*/**",
+        ],
+        allow_empty = False,
+    ),
+    visibility = ["//visibility:public"],
+)
+
 exports_files([
     "package.json",
     "package-lock.json",
@@ -179,7 +203,6 @@ sh_test(
     ],
     tags = [
         "external",
-        "manual",
         "no-sandbox",
         "requires-network",
     ],
@@ -196,11 +219,17 @@ sh_test(
 test_suite(
     name = "all_tests",
     tests = [
+        ":e2e_playwright",
         ":ts_eslint",
         ":ts_typecheck",
         ":ts_vitest_unit",
         "//transcribe:asr_results_to_captions_post_processing_pipeline_test",
         "//transcribe:asr_results_to_captions_test",
+        "//transcribe:bulk_cli_test",
         "//transcribe:captions_json5_lib_test",
+        "//transcribe:embed_cli_test",
+        "//transcribe:remux_mp3_test",
+        "//transcribe:transcribe_cli_apollo_test",
+        "//transcribe:transcribe_cli_test",
     ],
 )

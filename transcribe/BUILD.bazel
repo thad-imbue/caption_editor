@@ -1,4 +1,4 @@
-load("@py_pip//:requirements.bzl", "requirement")
+load("@py_pip//:requirements.bzl", "all_requirements", "requirement")
 load("@rules_python//python:defs.bzl", "py_library")
 load("//tools/bazel:pytest.bzl", "transcribe_pytest")
 
@@ -43,15 +43,26 @@ py_library(
         "transcribe_cli.py",
     ],
     imports = ["."],
-    deps = [
-        ":transcribe_lib_cheap",
-        requirement("numpy"),
-        requirement("soundfile"),
-        requirement("typer"),
-        requirement("torch"),
-        requirement("pyannote.audio"),
-        requirement("tqdm"),
-    ],
+    # Depend on the whole resolved lockfile rather than enumerating
+    # individual requirements. pip.parse's `requirement(...)` macro
+    # only links the package METADATA's `Requires-Dist` chain, which
+    # is too lossy for tools (nemo-toolkit, pyannote.audio) that
+    # import optional sub-modules at top level — every `[extras]`
+    # group and runtime `import` chain would otherwise need a
+    # hand-curated allowlist.
+    #
+    # Caveat: `all_requirements` includes `megatron-core`, which only
+    # ships as an sdist and whose setup.py shells out to `python3 -m
+    # pybind11 --includes` (fails under rules_python's hermetic build
+    # env). It isn't reached by the inference paths these tests
+    # exercise, but pulling it via `all_requirements` forces the wheel
+    # build during analysis. The MODULE.bazel-level `pip.override` for
+    # megatron-core (or a pip.parse `experimental_index_url_overrides`
+    # that drops it) is the proper fix — for now the assumption is
+    # that you have CommandLineTools + a working python3 with pybind11
+    # available on PATH so the sdist builds; if not, drop megatron-core
+    # from requirements_bazel.txt by hand after `uv export`.
+    deps = [":transcribe_lib_cheap"] + all_requirements,
     visibility = ["//visibility:public"],
 )
 
@@ -117,12 +128,18 @@ _HEAVY_TEST_DEPS = _CHEAP_TEST_DEPS + [
     requirement("typer"),
 ]
 
-_HEAVY_TAGS = ["manual", "requires-torch"]
+# Heavy tests load audio fixtures via REPO_ROOT/"test_data/...", which
+# `repo_root.py` computes as the parent of this directory. Adding the
+# repo-level `:test_data` filegroup ensures those files land in the
+# runfiles tree at `_main/test_data/`.
+_HEAVY_TEST_DATA = _CHEAP_TEST_DATA + ["//:test_data"]
+
+_HEAVY_TAGS = ["requires-torch"]
 
 transcribe_pytest(
     name = "bulk_cli_test",
     test_file = "bulk_cli_test.py",
-    data = _CHEAP_TEST_DATA,
+    data = _HEAVY_TEST_DATA,
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )
@@ -130,7 +147,7 @@ transcribe_pytest(
 transcribe_pytest(
     name = "embed_cli_test",
     test_file = "embed_cli_test.py",
-    data = _CHEAP_TEST_DATA,
+    data = _HEAVY_TEST_DATA,
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )
@@ -138,7 +155,7 @@ transcribe_pytest(
 transcribe_pytest(
     name = "transcribe_cli_test",
     test_file = "transcribe_cli_test.py",
-    data = _CHEAP_TEST_DATA,
+    data = _HEAVY_TEST_DATA,
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )
@@ -146,7 +163,7 @@ transcribe_pytest(
 transcribe_pytest(
     name = "transcribe_cli_apollo_test",
     test_file = "transcribe_cli_apollo_test.py",
-    data = _CHEAP_TEST_DATA,
+    data = _HEAVY_TEST_DATA,
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )
@@ -154,7 +171,7 @@ transcribe_pytest(
 transcribe_pytest(
     name = "remux_mp3_test",
     test_file = "remux_mp3_test.py",
-    data = _CHEAP_TEST_DATA,
+    data = _HEAVY_TEST_DATA,
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )

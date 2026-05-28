@@ -875,13 +875,13 @@ mediapy==1.1.6 \
     --hash=sha256:9f44b760400964d8bea5121a213f94dc9a225d026d6a819901283a695e585634 \
     --hash=sha256:c74370808b445666f95272bfdf0eb5707a43b7e05e5527f2dd0830e6892f976f
     # via nemo-toolkit
-megatron-core==0.16.1 \
-    --hash=sha256:38f6bef63cd4ebc4c39c1eccbaf578596accba5c47d012faffa0670913aec131 \
-    --hash=sha256:3fb26cb407aa3c4b609c08664022c08146f1648b3d6f2ef2bbe9d3b1294ace61 \
-    --hash=sha256:86522feacfa5ef384a6ac627e7d88cf4866811aed3bc9b6c2a85cbf15cff91a3 \
-    --hash=sha256:c96f37f8a630fed5fb7c132d8088da176bf8e6f9345c23532493af0f9ba214ba \
-    --hash=sha256:dab8b9a16bff77f5677e5afbcdb9e4f5c7f794d34dedd2ea9902e4bcc878d417
-    # via transcribe
+# megatron-core==0.16.1 dropped from the Bazel-side resolution: it ships
+# as an sdist whose setup.py shells out to `python3 -m pybind11 --includes`
+# inside an isolated build env where pybind11 isn't available, so the
+# wheel build fails. The inference code paths the transcribe_cli tests
+# exercise don't reach megatron, so this is safe to omit here. uv still
+# pulls it for the dev venv (where setup.py finds pybind11 via the
+# project's own deps).
 ml-dtypes==0.5.4 \
     --hash=sha256:19b9a53598f21e453ea2fbda8aa783c20faff8e1eeb0d7ab899309a0053f1483 \
     --hash=sha256:557a31a390b7e9439056644cb80ed0735a6e3e3bb09d67fd5687e4b04238d1de \
