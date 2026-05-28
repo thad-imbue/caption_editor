@@ -192,6 +192,32 @@ sh_test(
 )
 
 # -----------------------------------------------------------------------------
+# Coverage reports (TypeScript). `bazel run` targets, not test targets:
+# they delegate to the existing npm coverage scripts so `vite-plugin-
+# istanbul` + `@vitest/coverage-v8` + `nyc` keep working unchanged.
+# Output lands at `coverage/` in the repo root.
+#
+#   bazel run //:ts_vitest_coverage   — unit tests only (vitest + v8)
+#   bazel run //:ts_full_coverage     — unit + e2e (vitest + istanbul + nyc)
+#
+# Python coverage is unified: `bazel coverage //transcribe/...`
+# produces a real lcov report at
+# `bazel-out/_coverage/_coverage_report.dat` thanks to
+# `configure_coverage_tool = True` in MODULE.bazel.
+# -----------------------------------------------------------------------------
+sh_binary(
+    name = "ts_vitest_coverage",
+    srcs = ["//tools/bazel:run_coverage.sh"],
+    args = ["test:unit:coverage"],
+)
+
+sh_binary(
+    name = "ts_full_coverage",
+    srcs = ["//tools/bazel:run_coverage.sh"],
+    args = ["test:coverage"],
+)
+
+# -----------------------------------------------------------------------------
 # Convenience suite: everything in the default `bazel test //...` set.
 # -----------------------------------------------------------------------------
 test_suite(

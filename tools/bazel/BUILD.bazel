@@ -6,6 +6,7 @@ exports_files(
     [
         "run_in_workspace.sh",
         "run_playwright.sh",
+        "run_coverage.sh",
         "pytest_main.py",
     ],
     visibility = ["//visibility:public"],
