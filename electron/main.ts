@@ -930,6 +930,11 @@ async function runAsrTool(options: {
     // overrides.txt to a temp path with no spaces before invoking uvx.
     const overridesPathForUvx = path.join(os.tmpdir(), `caption_editor_overrides_${processId}.txt`)
     pythonArgs = [
+      // Pin Python to 3.12: kaldialign (transitive via nemo-toolkit) has no
+      // prebuilt wheel for cpython-313 on macOS arm64, so an unpinned uvx on
+      // a 3.13 system tries a source build and fails without cmake. 3.12 has
+      // wheels and matches transcribe/pyproject.toml's `requires-python<3.13`.
+      '--python', '3.12',
       '--from', `${ASR_GITHUB_REPO}@${ASR_COMMIT_HASH}#subdirectory=transcribe`,
       '--overrides', overridesPathForUvx,
       entryPoint,

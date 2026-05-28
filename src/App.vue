@@ -777,6 +777,13 @@ async function startAsrTranscription() {
     if (result.success) {
       console.log('[ASR] Transcription IPC finished:', result.captionsPath)
 
+      // If the user ran ASR on a media file with no document open yet,
+      // the in-memory doc should adopt the sidecar ASR just wrote so that
+      // Cmd+S saves in place instead of opening Save As. If a document was
+      // already open (filePath set), keep that path — the user expects save
+      // to go back to their existing file, not the ASR sidecar.
+      const hadNoPriorDocument = !store.document.filePath
+
       // Merge ASR results into current document (preserves UUID, title, history, etc.)
       if (result.content) {
         asrHr()
@@ -788,6 +795,12 @@ async function startAsrTranscription() {
         asrHr()
       } else {
         throw new Error('Transcription succeeded but no captions content was returned')
+      }
+
+      if (hadNoPriorDocument && result.captionsPath) {
+        store.updateFilePath(result.captionsPath)
+        // ASR's on-disk sidecar matches what we just merged in — no edits yet.
+        store.setIsDirty(false)
       }
 
       // Close modal on success

@@ -144,6 +144,27 @@ test.describe('ASR uvx Integration @expensive', () => {
             // Usually starts with something like "The birch canoe slid..."
             expect(firstSegment.text.toLowerCase()).toContain('birch')
 
+            // After ASR with no prior document, the app should adopt the sidecar
+            // path that ASR just wrote as the document's filePath, and the doc
+            // should not be dirty (on-disk matches in-memory). This is what
+            // makes Cmd+S save in place instead of opening Save As.
+            const expectedCaptionsPath = destAudioPath.replace(/\.wav$/, '.captions_json5')
+            const docState = await page.evaluate(() => {
+                const store = (window as any).$store
+                return { filePath: store.document.filePath, isDirty: store.isDirty }
+            })
+            expect(docState.filePath).toBe(expectedCaptionsPath)
+            expect(docState.isDirty).toBe(false)
+            console.log('[Test] document.filePath adopted, isDirty=false')
+
+            // Verify the sidecar exists on disk and contains the transcription.
+            expect(fs.existsSync(expectedCaptionsPath)).toBe(true)
+            const saved = fs.readFileSync(expectedCaptionsPath, 'utf8')
+            expect(saved.toLowerCase()).toContain('birch')
+            console.log('[Test] Sidecar verified at', expectedCaptionsPath)
+
+            // Because the doc is clean, close should not trigger the unsaved-
+            // changes dialog and electronApp.close() completes promptly.
             await electronApp.close()
         } finally {
             // Clean up temp directory
