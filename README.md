@@ -1,5 +1,7 @@
 # Caption Editor
 
+[![Build, sign & publish macOS DMG](https://github.com/thadd3us/caption_editor/actions/workflows/release.yml/badge.svg)](https://github.com/thadd3us/caption_editor/actions/workflows/release.yml)
+
 Caption Editor lets you run a modern, multi-lingual speech recognizer and speaker ID model on your own local media files, and easily interact with and edit the results.
 
 🖥️ **Local First** — Run fast, SOTA multilingual Automatic Speech Recognition (ASR) and Speaker Identification models entirely on-device
