@@ -61,7 +61,6 @@ env/
 .pytest_cache/
 *.egg-info/
 dist/
-dist-uvx/
 build/
 .uv/
 .python-version
