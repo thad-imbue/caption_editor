@@ -214,3 +214,49 @@ For more detail, run:
 ```bash
 ./scripts/build-released-app.sh --help
 ```
+
+---
+
+## CI: signing + notarizing on GitHub Actions
+
+`.github/workflows/release.yml` runs the same build on a `macos-latest` runner — push a `v*` tag and the workflow takes over: builds, signs, notarizes, staples, and attaches the DMG to the GitHub Release. Use it instead of (or alongside) running `scripts/build-released-app.sh` locally; the CI build is reproducible and untainted by whatever happens to be in the developer's Keychain at the moment.
+
+### One-time setup: secrets
+
+Add these in **repo → Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+|---|---|
+| `CSC_LINK` | Base64-encoded `.p12` of the Developer ID Application cert + private key. Export from Keychain Access → right-click the identity → "Export…" → `.p12` with a strong password, then `base64 -i cert.p12 \| pbcopy` and paste. |
+| `CSC_KEY_PASSWORD` | The password you set during the `.p12` export. |
+| `APPLE_ID` | Apple ID email tied to the developer account. |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from [appleid.apple.com](https://appleid.apple.com/) → Sign-In and Security → App-Specific Passwords. **Not** your Apple ID login password. |
+| `APPLE_TEAM_ID` | *(Optional override.)* Defaults to `RWVMRK3723` baked into the workflow. Set this only on forks under a different team. |
+
+The workflow reads each secret via an explicit `env:` block at the step that consumes it — see the comments in `release.yml`. GitHub redacts the values from logs automatically.
+
+### Triggering a release
+
+After the two-commit release dance documented in CLAUDE.md → "Version Management":
+
+```bash
+# 1) Bump APP_VERSION in electron/constants.ts, commit, push (commit A).
+# 2) Set ASR_COMMIT_HASH in both .ts and .py to A's hash, commit, push (commit B).
+# 3) Tag and push:
+git tag v1.6.2
+git push origin v1.6.2
+```
+
+The workflow fires on the tag push. It asserts the tag name matches the `APP_VERSION` literal in `electron/constants.ts` before building, so a mis-placed tag fails fast.
+
+For an unscheduled rebuild (no tag), use the **workflow_dispatch** button in the Actions tab and pass a `ref`. That run uploads the DMG as a workflow artifact but does **not** attach it to a GitHub Release.
+
+### Why a separate CI script wasn't reused
+
+`scripts/build-released-app.sh` is kept for local-dev use; the CI workflow inlines the equivalent steps rather than shelling out to the script. The two paths diverge meaningfully:
+
+- The script `source`s `.envrc` (which on CI doesn't exist and would error).
+- The script runs `npm install`, which can drift `package-lock.json`. CI uses `npm ci` to keep the lockfile load-bearing.
+- The script prints heavy human-readable banners; the workflow leans on Actions' built-in step grouping.
+
+If you want to keep the two flows in sync long-term, extract a shared `scripts/sign-and-notarize.sh` that only handles the `xcrun notarytool` + `stapler` block and have both callers invoke it.

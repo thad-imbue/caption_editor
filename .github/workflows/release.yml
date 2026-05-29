@@ -1,50 +1,73 @@
-name: Build and Release DMG
+name: Build, sign & publish macOS DMG
 
+# Fires on a `v*` tag push (the typical release flow — see CLAUDE.md →
+# "Version Management" for the two-commit dance that precedes the
+# tag), and also exposes a workflow_dispatch button for one-off
+# rebuilds at an arbitrary ref.
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version number (e.g., 1.0.1)'
-        required: true
+      ref:
+        description: 'Commit ref to build (default: current branch)'
+        required: false
         type: string
 
+# Required secrets (configure in repo settings → Secrets and
+# variables → Actions). Each step that uses them references them
+# explicitly via `env:` so the dependency is visible at the call
+# site rather than buried in implicit defaults.
+#
+#   CSC_LINK                      base64-encoded .p12 of the Developer
+#                                 ID Application cert + private key.
+#                                 electron-builder reads this env var
+#                                 by convention, imports the cert into
+#                                 a temporary keychain, and uses it to
+#                                 sign the .app + dmg.
+#
+#   CSC_KEY_PASSWORD              password used when exporting the .p12.
+#
+#   APPLE_ID                      Apple ID email tied to the developer
+#                                 account that issued the cert.
+#
+#   APPLE_APP_SPECIFIC_PASSWORD   App-specific password generated at
+#                                 appleid.apple.com → Sign-In and
+#                                 Security → App-Specific Passwords.
+#                                 Used by xcrun notarytool.
+#
+#   APPLE_TEAM_ID                 Apple developer team id. Currently
+#                                 hardcoded as "RWVMRK3723" in
+#                                 scripts/build-released-app.sh; we
+#                                 mirror that here as a default and
+#                                 allow a secret override for forks.
+
 jobs:
-  build-and-release:
+  build-and-publish:
     runs-on: macos-latest
+    timeout-minutes: 45
     permissions:
-      contents: write
+      contents: write  # required to create / update the GitHub Release
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref || github.ref }}
+          # Full history so any future stamping that needs `git
+          # describe` works; cheap on this repo.
           fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
-      - name: Validate version format
-        run: |
-          if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Version must be in format X.Y.Z (e.g., 1.0.1)"
-            exit 1
-          fi
-
-      - name: Check if tag exists
-        run: |
-          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
-            echo "Error: Tag v${{ inputs.version }} already exists"
-            exit 1
-          fi
-
-      - name: Update package.json version
-        run: |
-          npm version ${{ inputs.version }} --no-git-tag-version
-          echo "Updated version to ${{ inputs.version }}"
-
+      # Cache the per-electron-version pre-built binaries. electron's
+      # postinstall otherwise re-downloads ~150MB of platform binaries
+      # on every cold runner.
       - name: Cache Electron binaries
         uses: actions/cache@v4
         with:
@@ -53,7 +76,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-
 
-      - name: Cache Electron Builder
+      # Cache electron-builder's app-image scratch + macOS toolchain
+      # downloads (notarize helper, lzma-native, etc.). Largest savings
+      # after the first build at a given lockfile state.
+      - name: Cache electron-builder
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/electron-builder
@@ -64,61 +90,117 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test:unit
-
-      - name: Build application
-        run: npm run build:all
-
-      - name: Package DMG
-        run: npm run package:mac
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Find DMG file
-        id: find-dmg
+      # Sanity check: if this is a tag push, assert that the tag name
+      # matches the APP_VERSION literal in electron/constants.ts. This
+      # catches the common mistake of pushing the tag at the wrong
+      # commit (e.g. tagging commit A of the release dance when
+      # APP_VERSION still reflects the previous release). The check is
+      # skipped under workflow_dispatch — that path is for one-off
+      # rebuilds where the user is deliberately overriding.
+      - name: Verify tag matches APP_VERSION
+        if: github.event_name == 'push'
         run: |
-          DMG_PATH=$(find release -name "*.dmg" -type f | head -n 1)
-          if [ -z "$DMG_PATH" ]; then
-            echo "Error: No DMG file found in release directory"
+          TAG="${GITHUB_REF#refs/tags/v}"
+          APP_VERSION=$(node -p "require('fs').readFileSync('electron/constants.ts','utf8').match(/APP_VERSION = '(.+)'/)[1]")
+          if [[ "$TAG" != "$APP_VERSION" ]]; then
+            echo "::error::Tag v$TAG does not match APP_VERSION='$APP_VERSION' in electron/constants.ts."
+            echo "::error::Did the tag get placed on the wrong commit of the two-commit release dance?"
             exit 1
           fi
-          echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
-          echo "dmg_name=$(basename $DMG_PATH)" >> $GITHUB_OUTPUT
-          echo "Found DMG: $DMG_PATH"
+          echo "OK: tag v$TAG matches APP_VERSION=$APP_VERSION"
 
-      - name: Commit version bump
+      # `npm run package:mac` runs `vue-tsc → vite build → vite build
+      # --config vite.electron.config.ts → electron-builder --mac`
+      # with the APP_VERSION literal pulled from electron/constants.ts.
+      #
+      # CSC_* env vars are picked up by electron-builder automatically:
+      # it imports the .p12 into a temporary keychain and signs the
+      # .app with the Developer ID Application identity. We do NOT
+      # use electron-builder's built-in @electron/notarize wiring —
+      # that path hits a cdhash mismatch (Error 65) during stapling
+      # because the patched zip-vs-ditto path diverges from what
+      # xcrun expects. Notarization happens in the next step instead.
+      - name: Build & sign macOS app
+        run: npm run package:mac
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # electron-builder's notarize hook is disabled — we do it
+          # manually below. Setting this to false is harmless either
+          # way; it just makes the intent loud.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+
+      # Notarize the .dmg directly via xcrun notarytool. This is the
+      # same manual flow scripts/build-released-app.sh uses locally
+      # (see the comment block on the "Manual notarization" section
+      # of that script for why we don't let electron-builder do it).
+      #
+      # `--wait` blocks the runner until Apple's notary service
+      # finishes (usually 1-5 minutes, occasionally up to 15). The
+      # 45-minute job timeout accommodates the slow tail.
+      - name: Notarize DMG
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "Bump version to ${{ inputs.version }}" --trailer "Co-authored-by: Sculptor <sculptor@imbue.com>"
-          git push
+          APP_VERSION=$(node -p "require('fs').readFileSync('electron/constants.ts','utf8').match(/APP_VERSION = '(.+)'/)[1]")
+          DMG_PATH="release/Caption Editor-${APP_VERSION}-arm64.dmg"
+          APP_PATH="release/mac-arm64/Caption Editor.app"
 
-      - name: Create and push tag
-        run: |
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          if [[ ! -f "$DMG_PATH" ]]; then
+            echo "::error::DMG not found at: $DMG_PATH"
+            echo "Available files in release/:"
+            ls -la release/ || true
+            exit 1
+          fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+          echo "Submitting $DMG_PATH to Apple notary service..."
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          echo "Stapling ticket to DMG..."
+          xcrun stapler staple "$DMG_PATH"
+
+          echo "Stapling ticket to .app bundle..."
+          xcrun stapler staple "$APP_PATH"
+
+          echo "Validating staples..."
+          xcrun stapler validate "$DMG_PATH"
+          xcrun stapler validate "$APP_PATH"
+
+          # Stash the path for later steps. `release/` contains both
+          # arm64 dmg and zip; only the dmg is what users download.
+          echo "dmg_path=$DMG_PATH" >> "$GITHUB_ENV"
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # Default to the team id baked into
+          # scripts/build-released-app.sh; allow a secret override
+          # so forks don't have to patch the workflow.
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || 'RWVMRK3723' }}
+
+      # Keep the artifact for 7 days regardless of release flow —
+      # useful for workflow_dispatch runs that don't have a tag to
+      # attach to, and as a safety net if the release-upload step
+      # below fails for any reason.
+      - name: Upload DMG as workflow artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ inputs.version }}
-          name: Release v${{ inputs.version }}
-          draft: false
-          prerelease: false
-          files: ${{ steps.find-dmg.outputs.dmg_path }}
-          body: |
-            ## Caption Editor v${{ inputs.version }}
+          name: caption-editor-macos-dmg
+          path: release/*.dmg
+          retention-days: 7
 
-            ### Installation
-            Download the DMG file below and drag the app to your Applications folder.
-
-            ### Changes
-            - Version bump to ${{ inputs.version }}
-
-            ---
-            Built automatically by GitHub Actions
+      # Publish to the GitHub Release page only on tag pushes.
+      # `softprops/action-gh-release@v2` creates the release if it
+      # doesn't exist yet and attaches the DMG. The release body is
+      # intentionally minimal — fill in changelog by hand if needed.
+      - name: Attach DMG to GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.dmg_path }}
+          # The action infers tag_name from GITHUB_REF on tag pushes,
+          # so leaving it implicit keeps the workflow tag-agnostic.
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
