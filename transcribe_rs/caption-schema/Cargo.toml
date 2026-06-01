@@ -9,4 +9,5 @@ description = "Serde mirror of transcribe/schema.py and src/types/schema.ts."
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+json5 = { workspace = true }
 base64 = "0.22"

@@ -211,8 +211,34 @@ pub struct AsrSegment {
 }
 
 // ---------------------------------------------------------------------------
-// Embedding codec (matches transcribe/schema.py encode/decode_embedding)
+// JSON5 read/write (matches transcribe/captions_json5_lib.py)
 // ---------------------------------------------------------------------------
+//
+// Header comments are preserved on write to match the Python writer; the
+// reader tolerates them because json5 grammar permits `//` line comments.
+
+pub const CAPTIONS_HEADER_TEMPLATE: &str = concat!(
+    "// Caption Editor: https://github.com/thadd3us/caption_editor/\n",
+    "// File schema TypeScript: https://github.com/thadd3us/caption_editor/blob/{HASH}/src/types/schema.ts\n",
+    "// File schema Python: https://github.com/thadd3us/caption_editor/blob/{HASH}/transcribe/schema.py\n",
+);
+
+/// Parse a `.captions_json5` string. Tolerates leading `//` comments.
+pub fn parse_captions_json5(content: &str) -> Result<CaptionsDocument, json5::Error> {
+    json5::from_str(content)
+}
+
+/// Serialize to the canonical `.captions_json5` format: header comments
+/// (with `{HASH}` substitutions for the schema-pinned commit hash) followed
+/// by 2-space-indented JSON. Matches Python's `serialize_captions_json5`.
+pub fn serialize_captions_json5(doc: &CaptionsDocument, asr_commit_hash: &str) -> String {
+    let header = CAPTIONS_HEADER_TEMPLATE.replace("{HASH}", asr_commit_hash);
+    // serde_json's default pretty-printer matches Python's
+    // `json.dumps(..., indent=2)` formatting (2-space indent, no trailing
+    // whitespace, `\n` newlines).
+    let body = serde_json::to_string_pretty(doc).expect("CaptionsDocument is serializable");
+    format!("{header}{body}\n")
+}
 
 pub fn encode_embedding(values: &[f32]) -> String {
     use base64::Engine as _;
@@ -243,6 +269,47 @@ mod tests {
         let b64 = encode_embedding(&values);
         let back = decode_embedding(&b64).unwrap();
         assert_eq!(values, back);
+    }
+
+    #[test]
+    fn json5_roundtrip_strips_and_re_emits_header() {
+        let doc = CaptionsDocument {
+            metadata: TranscriptMetadata {
+                id: "doc-1".into(),
+                media_file_path: Some("video.mp4".into()),
+            },
+            title: None,
+            segments: vec![TranscriptSegment {
+                id: "s1".into(),
+                index: 0,
+                start_time: 1.0,
+                end_time: 2.5,
+                text: "hello".into(),
+                words: None,
+                speaker_name: None,
+                rating: None,
+                timestamp: None,
+                verified: None,
+                asr_model: None,
+                notes: None,
+            }],
+            history: None,
+            embeddings: None,
+            embedding_model: None,
+            ui_state: None,
+            raw_asr_output: None,
+        };
+        let serialized = serialize_captions_json5(&doc, "abc123");
+        // Header includes substituted hash.
+        assert!(serialized.contains("abc123"));
+        assert!(serialized.starts_with("// Caption Editor"));
+
+        let parsed = parse_captions_json5(&serialized).unwrap();
+        assert_eq!(parsed.metadata.id, "doc-1");
+        assert_eq!(parsed.segments.len(), 1);
+        assert_eq!(parsed.segments[0].text, "hello");
+        // Optional fields stay None on the round-trip.
+        assert!(parsed.segments[0].verified.is_none());
     }
 
     #[test]

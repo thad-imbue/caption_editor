@@ -153,12 +153,8 @@ crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//transcribe_rs:Cargo.lock",
-    manifests = [
-        "//transcribe_rs:Cargo.toml",
-        "//transcribe_rs/caption-schema:Cargo.toml",
-        "//transcribe_rs/caption-core:Cargo.toml",
-        "//transcribe_rs/transcribe-rs:Cargo.toml",
-        "//transcribe_rs/embed-rs:Cargo.toml",
-    ],
+    # Only the workspace root is needed — `from_cargo` walks the workspace
+    # `members` from there to discover per-crate manifests.
+    manifests = ["//transcribe_rs:Cargo.toml"],
 )
 use_repo(crate, "crates")
