@@ -13,6 +13,7 @@ export default tseslint.config(
       "bug-reports/**",
       "prototypes/**",
       "hack/**",
+      "transcribe_rs/**/target/**",
       "**/.venv/**",
       "playwright-report/**",
       "test-results/**",

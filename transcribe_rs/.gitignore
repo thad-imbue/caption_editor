@@ -1,0 +1,3 @@
+target/
+# Cargo.lock is committed: this is a binary workspace, and rules_rust
+# crate_universe wants a stable lockfile to derive the Bazel dep graph.
