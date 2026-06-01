@@ -75,6 +75,13 @@ struct Args {
     /// Required for tests that snapshot the .captions_json5 output.
     #[clap(long)]
     deterministic_ids: bool,
+    /// Debug: dump raw parakeet-rs tokens (Tokens mode, pre-grouping) for
+    /// every chunk, as JSON arrays of `{text, start, end}` per chunk, to
+    /// the given path. Lets us cross-check against NeMo's PyTorch token
+    /// stream — if our tokens are missing periods that NeMo emits, the
+    /// punctuation gap lives in parakeet-rs's inference, not in grouping.
+    #[clap(long)]
+    dump_tokens: Option<PathBuf>,
     /// Skip the automatic speaker-embedding step (default behavior is to
     /// invoke `embed-rs` against the just-written file, matching Python's
     /// default-on `--embed`).
@@ -156,6 +163,7 @@ fn main() -> Result<()> {
         channels,
         args.chunk_size,
         args.overlap,
+        args.dump_tokens.as_deref(),
     )?;
 
     let processed = post_process_raw_asr_segments(
@@ -394,7 +402,9 @@ fn transcribe_chunked(
     channels: u16,
     chunk_size: u32,
     overlap: u32,
+    dump_tokens_path: Option<&Path>,
 ) -> Result<Vec<AsrSegment>> {
+    let mut token_dump: Vec<serde_json::Value> = Vec::new();
     if sample_rate != TARGET_SAMPLE_RATE {
         return Err(eyre!(
             "expected {TARGET_SAMPLE_RATE} Hz after ffmpeg resample, got {sample_rate}"
@@ -428,6 +438,29 @@ fn transcribe_chunked(
             // pair them — same shape as Python's `parse_parakeet_raw_chunk`.
             .transcribe_samples(slice, sample_rate, channels, Some(TimestampMode::Tokens))
             .map_err(|e| eyre!("parakeet transcribe chunk {i}: {e}"))?;
+
+        if dump_tokens_path.is_some() {
+            // Each TimedToken: { text, start, end } — relative to the chunk.
+            // We also stash the chunk_start so the consumer can convert to
+            // absolute time and compare against NeMo's PyTorch output.
+            let chunk_tokens: Vec<serde_json::Value> = result
+                .tokens
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "text": t.text,
+                        "start": t.start,
+                        "end": t.end,
+                    })
+                })
+                .collect();
+            token_dump.push(serde_json::json!({
+                "chunk_index": i,
+                "chunk_start_s": chunk_start_s,
+                "chunk_end_s": chunk_end_s,
+                "tokens": chunk_tokens,
+            }));
+        }
 
         let sentences = parakeet_grouping::group_by_sentences(&result.tokens);
         let words = parakeet_grouping::group_by_words(&result.tokens);
@@ -463,6 +496,14 @@ fn transcribe_chunked(
                 speaker: None,
             });
         }
+    }
+
+    if let Some(path) = dump_tokens_path {
+        let json = serde_json::to_string_pretty(&token_dump)
+            .with_context(|| format!("serialize token dump"))?;
+        std::fs::write(path, json)
+            .with_context(|| format!("write token dump → {}", path.display()))?;
+        eprintln!("Wrote raw token dump → {}", path.display());
     }
     Ok(all)
 }

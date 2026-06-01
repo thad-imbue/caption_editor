@@ -109,7 +109,16 @@ pub fn group_by_sentences(tokens: &[TimedToken]) -> Vec<TimedToken> {
         if ends_sentence {
             let sentence_text = format_sentence(&current_sentence);
             let start = current_sentence.first().unwrap().start;
-            let end = current_sentence.last().unwrap().end;
+            // NeMo gives punctuation tokens zero duration (end == start), so
+            // a NeMo segment ends at the end of the last *spoken* word.
+            // parakeet-rs makes the punctuation token span from the end of
+            // the previous token to the start of the next, which artificially
+            // extends our sentence end by 0.1–0.3s. That extra slop makes
+            // adjacent sentences look like they overlap in
+            // resolve_overlap_conflicts, triggering spurious merges across
+            // chunk boundaries. Use the prior word's end (i.e. the start of
+            // the terminator) so our sentence intervals match NeMo's.
+            let end = sentence_end_excluding_terminator(&current_sentence);
 
             if !sentence_text.is_empty() {
                 sentences.push(TimedToken {
@@ -125,6 +134,8 @@ pub fn group_by_sentences(tokens: &[TimedToken]) -> Vec<TimedToken> {
     if !current_sentence.is_empty() {
         let sentence_text = format_sentence(&current_sentence);
         let start = current_sentence.first().unwrap().start;
+        // Trailing-fragment case (no terminator at all): keep the last word's
+        // actual end; there's no spurious-punctuation slop to trim.
         let end = current_sentence.last().unwrap().end;
 
         if !sentence_text.is_empty() {
@@ -137,6 +148,26 @@ pub fn group_by_sentences(tokens: &[TimedToken]) -> Vec<TimedToken> {
     }
 
     sentences
+}
+
+/// End time for a sentence that ends in punctuation. Trims the punctuation
+/// token's extent (parakeet-rs assigns it the gap between the previous and
+/// next tokens; NeMo treats it as zero-duration). Walks backward from the
+/// end of `words` skipping pure-punctuation entries; returns the end of the
+/// first content word. Falls back to the last word's end (matches NeMo
+/// when no content word precedes the terminator — e.g. a chunk that starts
+/// mid-sentence with just `.`).
+fn sentence_end_excluding_terminator(words: &[TimedToken]) -> f32 {
+    for w in words.iter().rev() {
+        if !is_pure_punctuation(&w.text) {
+            return w.end;
+        }
+    }
+    words.last().map(|w| w.end).unwrap_or(0.0)
+}
+
+fn is_pure_punctuation(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_punctuation())
 }
 
 /// Join words with punctuation spacing (no space before `. , ! ? ; : )`).
