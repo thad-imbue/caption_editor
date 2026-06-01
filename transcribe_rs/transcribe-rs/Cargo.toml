@@ -19,3 +19,5 @@ hound = { workspace = true }
 serde_json = { workspace = true }
 hf-hub = { workspace = true }
 parakeet-rs = { workspace = true, features = ["coreml"] }
+tempfile = "3"
+sha2 = "0.10"
