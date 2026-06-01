@@ -8,7 +8,7 @@ exports_files(
 
 rust_binary(
     name = "embed-rs",
-    srcs = ["src/main.rs"],
+    srcs = glob(["src/**/*.rs"]),
     aliases = aliases(),
     edition = "2021",
     proc_macro_deps = all_crate_deps(proc_macro = True),

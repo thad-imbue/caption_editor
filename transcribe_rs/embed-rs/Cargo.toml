@@ -21,6 +21,8 @@ ndarray = { workspace = true }
 ort = { workspace = true, features = ["coreml"] }
 knf-rs = { workspace = true }
 tempfile = "3"
+umap-rs = { workspace = true }
+rand = { workspace = true }
 
 [features]
 default = ["ort-defaults"]

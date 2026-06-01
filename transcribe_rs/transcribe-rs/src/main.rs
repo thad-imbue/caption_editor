@@ -10,15 +10,13 @@
 //!   5. Assign deterministic cue IDs (SHA-256 of audio hash + segment start).
 //!   6. Write a `.captions_json5` document including `rawAsrOutput` snapshot.
 //!
-//! Known gaps vs Python (kept narrow; see TODOs):
-//!   - parakeet-rs gives **word-level** tokens with TimestampMode::Words. The
-//!     Python pipeline reads NeMo's *sentence-level* segments and matches
-//!     words by time range. Our pipeline currently treats each word as a
-//!     single-word AsrSegment and groups them with `is_whisper=true` so
-//!     gaps merge them into sentences. Output text matches; sentence-boundary
-//!     punctuation will differ from Python on the same audio.
-//!   - Auto-embed (`--embed` in Python) not wired; run `embed-rs` separately.
-//!   - MP3 remux (`--remux-mp3`) not wired (rarely used).
+//! Parakeet sentence/word handling: we ask parakeet-rs for raw token
+//! timestamps (`TimestampMode::Tokens`), then run its public
+//! `process_timestamps` twice to get *both* sentence-level and word-level
+//! groupings from the same tokens. Words are then paired into sentences
+//! by time-range (with the same 0.01s tolerance Python's
+//! `parse_parakeet_raw_chunk` uses), giving the post-processing pipeline
+//! sentence-level segments — matching the `is_whisper=False` flow.
 
 use caption_core::{
     asr_segments_to_transcript_segments, post_process_raw_asr_segments,
@@ -31,6 +29,8 @@ use clap::Parser;
 use eyre::{eyre, Context, Result};
 use hf_hub::api::sync::ApiBuilder;
 use parakeet_rs::{ParakeetTDT, TimestampMode, Transcriber};
+
+mod parakeet_grouping;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -116,10 +116,10 @@ fn main() -> Result<()> {
         args.overlap as f64,
         args.max_intra_segment_gap_seconds,
         args.max_segment_duration_seconds,
-        // parakeet-rs Words mode emits per-word segments — group-by-gap path
-        // (same as Whisper) reconstructs sentence boundaries from inter-word
-        // gaps. See module-level note on the parity gap.
-        /* is_whisper */ true,
+        // Parakeet path: input is sentence-level segments (already grouped
+        // by parakeet-rs's `Sentences` mode), pipeline splits on big gaps
+        // and on max-duration. Matches Python's `is_whisper=False` flow.
+        /* is_whisper */ false,
     );
 
     let mut transcript = asr_segments_to_transcript_segments(processed, Some(&args.model));
@@ -276,27 +276,40 @@ fn transcribe_chunked(
         eprintln!("  chunk {}/{}: [{:.1}s, {:.1}s)", i + 1, num_chunks, chunk_start_s, chunk_end_s);
 
         let result = parakeet
-            .transcribe_samples(slice, sample_rate, channels, Some(TimestampMode::Words))
+            // `Tokens` gives raw subword tokens. We re-derive both Sentences
+            // and Words via parakeet-rs's public `process_timestamps`, then
+            // pair them — same shape as Python's `parse_parakeet_raw_chunk`.
+            .transcribe_samples(slice, sample_rate, channels, Some(TimestampMode::Tokens))
             .map_err(|e| eyre!("parakeet transcribe chunk {i}: {e}"))?;
 
-        // Each "token" is a word with start/end relative to the slice. Offset
-        // back to absolute time and emit one single-word AsrSegment per word
-        // (matching the Python whisper path, which group_segments_by_gap
-        // turns into sentences downstream).
-        for tok in result.tokens.iter() {
-            let abs_start = tok.start as f64 + chunk_start_s;
-            let abs_end = tok.end as f64 + chunk_start_s;
-            let word = WordTimestamp {
-                word: tok.text.clone(),
-                start: abs_start,
-                end: abs_end,
-            };
+        let sentences = parakeet_grouping::group_by_sentences(&result.tokens);
+        let words = parakeet_grouping::group_by_words(&result.tokens);
+
+        for sent in sentences.iter() {
+            let abs_s_start = sent.start as f64 + chunk_start_s;
+            let abs_s_end = sent.end as f64 + chunk_start_s;
+
+            // Same 0.01s tolerance as Python `parse_parakeet_raw_chunk` — keeps
+            // the time-range word/segment pairing identical across languages.
+            let mut seg_words = Vec::new();
+            for w in &words {
+                let abs_w_start = w.start as f64 + chunk_start_s;
+                let abs_w_end = w.end as f64 + chunk_start_s;
+                if abs_w_start >= abs_s_start - 0.01 && abs_w_end <= abs_s_end + 0.01 {
+                    seg_words.push(WordTimestamp {
+                        word: w.text.clone(),
+                        start: abs_w_start,
+                        end: abs_w_end,
+                    });
+                }
+            }
+
             all.push(AsrSegment {
-                text: tok.text.clone(),
-                start: abs_start,
-                end: abs_end,
-                words: vec![word],
-                // Setting chunk_start here matches Python's transcribe_audio_file
+                text: sent.text.clone(),
+                start: abs_s_start,
+                end: abs_s_end,
+                words: seg_words,
+                // Setting chunk_start matches Python's transcribe_audio_file
                 // (which assigns segment.chunk_start = chunk_start after parsing),
                 // so the overlap-merge picks the chunk-region midpoint.
                 chunk_start: Some(chunk_start_s),

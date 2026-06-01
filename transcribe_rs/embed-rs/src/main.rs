@@ -16,9 +16,11 @@
 //! wired in.
 
 use caption_schema::{
-    encode_embedding, parse_captions_json5, serialize_captions_json5, CaptionsDocument,
-    SegmentSpeakerEmbedding,
+    decode_embedding, encode_embedding, parse_captions_json5, serialize_captions_json5,
+    CaptionsDocument, SegmentSpeakerEmbedding,
 };
+
+mod umap;
 use clap::Parser;
 use eyre::{eyre, Context, ContextCompat, Result};
 use hf_hub::api::sync::ApiBuilder;
@@ -55,6 +57,14 @@ struct Args {
     /// Skip segments shorter than this many seconds.
     #[clap(long, default_value_t = DEFAULT_MIN_SEGMENT_DURATION_SECS)]
     min_segment_duration: f64,
+    /// UMAP target dimensionalities. Pass each one separately, e.g.
+    /// `--umap-dimensions 1 --umap-dimensions 2`. Default `[1, 2]`
+    /// matches the Python CLI; pass an empty list (`--no-umap`) to skip.
+    #[clap(long = "umap-dimensions", value_name = "DIM", num_args = 0..)]
+    umap_dimensions: Option<Vec<usize>>,
+    /// Disable UMAP entirely.
+    #[clap(long, conflicts_with = "umap_dimensions")]
+    no_umap: bool,
 }
 
 fn main() -> Result<()> {
@@ -101,8 +111,6 @@ fn main() -> Result<()> {
         embeddings_out.push(SegmentSpeakerEmbedding {
             segment_id: seg.id.clone(),
             speaker_embedding: encode_embedding(&emb),
-            // TODO: UMAP reductions (Python computes 1-D and 2-D defaults).
-            // Plug in a Rust UMAP impl (umap or smartcore) when adding.
             umap_embeddings: None,
         });
     }
@@ -111,6 +119,52 @@ fn main() -> Result<()> {
         embeddings_out.len(),
         skipped
     );
+
+    // UMAP reductions. Defaults to [1, 2] matching the Python CLI. We compute
+    // a separate fit per requested dimensionality (same shape Python emits:
+    // `umap_embeddings[i].umap_embeddings = {"1": [...], "2": [...]}`).
+    let umap_dims: Vec<usize> = if args.no_umap {
+        Vec::new()
+    } else {
+        args.umap_dimensions.clone().unwrap_or_else(|| vec![1, 2])
+    };
+    if !umap_dims.is_empty() && embeddings_out.len() > 1 {
+        let raw: Vec<Vec<f32>> = embeddings_out
+            .iter()
+            .map(|e| decode_embedding(&e.speaker_embedding))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| eyre!("decode embedding for UMAP input: {e}"))?;
+
+        let mut per_segment: Vec<std::collections::BTreeMap<String, Vec<f64>>> =
+            vec![Default::default(); embeddings_out.len()];
+        for dim in umap_dims {
+            eprintln!("UMAP n_components={dim} (n_neighbors=15, init=random) — fitting...");
+            match umap::compute_umap(&raw, dim) {
+                Ok(Some(reduced)) => {
+                    for (i, row) in reduced.iter().enumerate() {
+                        per_segment[i].insert(
+                            dim.to_string(),
+                            row.iter().map(|x| *x as f64).collect(),
+                        );
+                    }
+                    eprintln!("UMAP n_components={dim} finished.");
+                }
+                Ok(None) => {
+                    eprintln!("UMAP n_components={dim} skipped (too few embeddings).");
+                }
+                Err(e) => {
+                    // Python catches all UMAP errors and just skips the dim;
+                    // do the same so a flaky run doesn't lose the embeddings.
+                    eprintln!("UMAP computation failed for n_components={dim}: {e}");
+                }
+            }
+        }
+        for (slot, mut entries) in embeddings_out.iter_mut().zip(per_segment.into_iter()) {
+            if !entries.is_empty() {
+                slot.umap_embeddings = Some(std::mem::take(&mut entries));
+            }
+        }
+    }
 
     document.embeddings = Some(embeddings_out);
     document.embedding_model = Some(args.model.clone());

@@ -34,3 +34,5 @@ ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "n
 knf-rs = "0.3"
 parakeet-rs = { version = "0.3", default-features = false, features = ["cpu", "ort-defaults"] }
 insta = { version = "1", features = ["json", "yaml"] }
+umap-rs = "0.4"
+rand = "0.9"
