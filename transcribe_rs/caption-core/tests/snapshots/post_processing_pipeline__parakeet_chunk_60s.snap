@@ -1,0 +1,551 @@
+---
+source: caption-core/tests/post_processing_pipeline.rs
+expression: "build_payload(\"parakeet\", 60)"
+---
+{
+  "processed": {
+    "num_segments": 10,
+    "segments": [
+      {
+        "duration": 3.2,
+        "end_time": 3.44,
+        "start_time": 0.24,
+        "text": "The birch canoe slid on the smooth planks."
+      },
+      {
+        "duration": 3.12,
+        "end_time": 7.12,
+        "start_time": 4.0,
+        "text": "Glue the sheet to the dark blue background."
+      },
+      {
+        "duration": 2.48,
+        "end_time": 9.92,
+        "start_time": 7.44,
+        "text": "It is easy to tell the depth of a well."
+      },
+      {
+        "duration": 2.88,
+        "end_time": 13.44,
+        "start_time": 10.56,
+        "text": "These days a chicken leg is a rare dish."
+      },
+      {
+        "duration": 2.72,
+        "end_time": 16.72,
+        "start_time": 14.0,
+        "text": "Rice is often served in round bowls."
+      },
+      {
+        "duration": 2.72,
+        "end_time": 19.76,
+        "start_time": 17.04,
+        "text": "The juice of lemons makes fine punch."
+      },
+      {
+        "duration": 2.72,
+        "end_time": 22.88,
+        "start_time": 20.16,
+        "text": "The box was thrown beside the park truck."
+      },
+      {
+        "duration": 2.8,
+        "end_time": 26.24,
+        "start_time": 23.44,
+        "text": "The hogs were fed chopped corn and garbage."
+      },
+      {
+        "duration": 2.48,
+        "end_time": 29.28,
+        "start_time": 26.8,
+        "text": "Four hours of steady work faced us."
+      },
+      {
+        "duration": 2.64,
+        "end_time": 32.48,
+        "start_time": 29.84,
+        "text": "A large size in stockings is hard to sell."
+      }
+    ]
+  },
+  "rawAsrOutput": {
+    "segments": [
+      {
+        "end": 3.44,
+        "start": 0.24,
+        "text": "The birch canoe slid on the smooth planks.",
+        "words": [
+          {
+            "end": 0.56,
+            "start": 0.24,
+            "word": "The"
+          },
+          {
+            "end": 1.12,
+            "start": 0.56,
+            "word": "birch"
+          },
+          {
+            "end": 1.6,
+            "start": 1.12,
+            "word": "canoe"
+          },
+          {
+            "end": 2.0,
+            "start": 1.6,
+            "word": "slid"
+          },
+          {
+            "end": 2.16,
+            "start": 2.0,
+            "word": "on"
+          },
+          {
+            "end": 2.24,
+            "start": 2.16,
+            "word": "the"
+          },
+          {
+            "end": 2.8,
+            "start": 2.24,
+            "word": "smooth"
+          },
+          {
+            "end": 3.44,
+            "start": 2.8,
+            "word": "planks."
+          }
+        ]
+      },
+      {
+        "end": 7.12,
+        "start": 4.0,
+        "text": "Glue the sheet to the dark blue background.",
+        "words": [
+          {
+            "end": 4.56,
+            "start": 4.0,
+            "word": "Glue"
+          },
+          {
+            "end": 4.72,
+            "start": 4.56,
+            "word": "the"
+          },
+          {
+            "end": 5.04,
+            "start": 4.72,
+            "word": "sheet"
+          },
+          {
+            "end": 5.2,
+            "start": 5.04,
+            "word": "to"
+          },
+          {
+            "end": 5.28,
+            "start": 5.2,
+            "word": "the"
+          },
+          {
+            "end": 5.52,
+            "start": 5.28,
+            "word": "dark"
+          },
+          {
+            "end": 6.0,
+            "start": 5.52,
+            "word": "blue"
+          },
+          {
+            "end": 7.12,
+            "start": 6.0,
+            "word": "background."
+          }
+        ]
+      },
+      {
+        "end": 9.92,
+        "start": 7.44,
+        "text": "It is easy to tell the depth of a well.",
+        "words": [
+          {
+            "end": 7.76,
+            "start": 7.44,
+            "word": "It"
+          },
+          {
+            "end": 7.92,
+            "start": 7.76,
+            "word": "is"
+          },
+          {
+            "end": 8.24,
+            "start": 7.92,
+            "word": "easy"
+          },
+          {
+            "end": 8.4,
+            "start": 8.24,
+            "word": "to"
+          },
+          {
+            "end": 8.64,
+            "start": 8.4,
+            "word": "tell"
+          },
+          {
+            "end": 8.8,
+            "start": 8.64,
+            "word": "the"
+          },
+          {
+            "end": 9.2,
+            "start": 8.8,
+            "word": "depth"
+          },
+          {
+            "end": 9.36,
+            "start": 9.2,
+            "word": "of"
+          },
+          {
+            "end": 9.6,
+            "start": 9.36,
+            "word": "a"
+          },
+          {
+            "end": 9.92,
+            "start": 9.6,
+            "word": "well."
+          }
+        ]
+      },
+      {
+        "end": 13.44,
+        "start": 10.56,
+        "text": "These days a chicken leg is a rare dish.",
+        "words": [
+          {
+            "end": 10.88,
+            "start": 10.56,
+            "word": "These"
+          },
+          {
+            "end": 11.2,
+            "start": 10.88,
+            "word": "days"
+          },
+          {
+            "end": 11.36,
+            "start": 11.28,
+            "word": "a"
+          },
+          {
+            "end": 11.84,
+            "start": 11.36,
+            "word": "chicken"
+          },
+          {
+            "end": 12.08,
+            "start": 11.84,
+            "word": "leg"
+          },
+          {
+            "end": 12.24,
+            "start": 12.08,
+            "word": "is"
+          },
+          {
+            "end": 12.32,
+            "start": 12.24,
+            "word": "a"
+          },
+          {
+            "end": 12.8,
+            "start": 12.32,
+            "word": "rare"
+          },
+          {
+            "end": 13.44,
+            "start": 12.8,
+            "word": "dish."
+          }
+        ]
+      },
+      {
+        "end": 16.72,
+        "start": 14.0,
+        "text": "Rice is often served in round bowls.",
+        "words": [
+          {
+            "end": 14.48,
+            "start": 14.0,
+            "word": "Rice"
+          },
+          {
+            "end": 14.64,
+            "start": 14.48,
+            "word": "is"
+          },
+          {
+            "end": 14.96,
+            "start": 14.64,
+            "word": "often"
+          },
+          {
+            "end": 15.28,
+            "start": 14.96,
+            "word": "served"
+          },
+          {
+            "end": 15.52,
+            "start": 15.28,
+            "word": "in"
+          },
+          {
+            "end": 15.92,
+            "start": 15.52,
+            "word": "round"
+          },
+          {
+            "end": 16.72,
+            "start": 15.92,
+            "word": "bowls."
+          }
+        ]
+      },
+      {
+        "end": 19.76,
+        "start": 17.04,
+        "text": "The juice of lemons makes fine punch.",
+        "words": [
+          {
+            "end": 17.28,
+            "start": 17.04,
+            "word": "The"
+          },
+          {
+            "end": 17.6,
+            "start": 17.28,
+            "word": "juice"
+          },
+          {
+            "end": 17.76,
+            "start": 17.6,
+            "word": "of"
+          },
+          {
+            "end": 18.32,
+            "start": 17.76,
+            "word": "lemons"
+          },
+          {
+            "end": 18.64,
+            "start": 18.32,
+            "word": "makes"
+          },
+          {
+            "end": 19.12,
+            "start": 18.64,
+            "word": "fine"
+          },
+          {
+            "end": 19.76,
+            "start": 19.12,
+            "word": "punch."
+          }
+        ]
+      },
+      {
+        "end": 22.88,
+        "start": 20.16,
+        "text": "The box was thrown beside the park truck.",
+        "words": [
+          {
+            "end": 20.4,
+            "start": 20.16,
+            "word": "The"
+          },
+          {
+            "end": 20.8,
+            "start": 20.4,
+            "word": "box"
+          },
+          {
+            "end": 20.96,
+            "start": 20.8,
+            "word": "was"
+          },
+          {
+            "end": 21.28,
+            "start": 20.96,
+            "word": "thrown"
+          },
+          {
+            "end": 21.6,
+            "start": 21.28,
+            "word": "beside"
+          },
+          {
+            "end": 21.76,
+            "start": 21.6,
+            "word": "the"
+          },
+          {
+            "end": 22.16,
+            "start": 21.76,
+            "word": "park"
+          },
+          {
+            "end": 22.88,
+            "start": 22.32,
+            "word": "truck."
+          }
+        ]
+      },
+      {
+        "end": 26.24,
+        "start": 23.44,
+        "text": "The hogs were fed chopped corn and garbage.",
+        "words": [
+          {
+            "end": 23.68,
+            "start": 23.44,
+            "word": "The"
+          },
+          {
+            "end": 24.08,
+            "start": 23.68,
+            "word": "hogs"
+          },
+          {
+            "end": 24.24,
+            "start": 24.08,
+            "word": "were"
+          },
+          {
+            "end": 24.64,
+            "start": 24.24,
+            "word": "fed"
+          },
+          {
+            "end": 24.96,
+            "start": 24.64,
+            "word": "chopped"
+          },
+          {
+            "end": 25.28,
+            "start": 24.96,
+            "word": "corn"
+          },
+          {
+            "end": 25.44,
+            "start": 25.28,
+            "word": "and"
+          },
+          {
+            "end": 26.24,
+            "start": 25.44,
+            "word": "garbage."
+          }
+        ]
+      },
+      {
+        "end": 29.28,
+        "start": 26.8,
+        "text": "Four hours of steady work faced us.",
+        "words": [
+          {
+            "end": 27.2,
+            "start": 26.8,
+            "word": "Four"
+          },
+          {
+            "end": 27.52,
+            "start": 27.2,
+            "word": "hours"
+          },
+          {
+            "end": 27.68,
+            "start": 27.52,
+            "word": "of"
+          },
+          {
+            "end": 28.08,
+            "start": 27.68,
+            "word": "steady"
+          },
+          {
+            "end": 28.4,
+            "start": 28.08,
+            "word": "work"
+          },
+          {
+            "end": 28.96,
+            "start": 28.4,
+            "word": "faced"
+          },
+          {
+            "end": 29.28,
+            "start": 28.96,
+            "word": "us."
+          }
+        ]
+      },
+      {
+        "end": 32.48,
+        "start": 29.84,
+        "text": "A large size in stockings is hard to sell.",
+        "words": [
+          {
+            "end": 30.08,
+            "start": 29.84,
+            "word": "A"
+          },
+          {
+            "end": 30.48,
+            "start": 30.08,
+            "word": "large"
+          },
+          {
+            "end": 30.72,
+            "start": 30.48,
+            "word": "size"
+          },
+          {
+            "end": 30.88,
+            "start": 30.72,
+            "word": "in"
+          },
+          {
+            "end": 31.44,
+            "start": 30.88,
+            "word": "stockings"
+          },
+          {
+            "end": 31.6,
+            "start": 31.44,
+            "word": "is"
+          },
+          {
+            "end": 31.84,
+            "start": 31.6,
+            "word": "hard"
+          },
+          {
+            "end": 32.16,
+            "start": 31.84,
+            "word": "to"
+          },
+          {
+            "end": 32.48,
+            "start": 32.16,
+            "word": "sell."
+          }
+        ]
+      }
+    ],
+    "version": 1
+  }
+}

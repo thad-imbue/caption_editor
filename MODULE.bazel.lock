@@ -510,7 +510,7 @@
           "FILE:@@//transcribe_rs/Cargo.lock 82ba039351ead9190faa36d49d5b0be4369812e97191ba79133713501e6e788b",
           "FILE:@@//transcribe_rs/Cargo.toml ca52396bd5c9848dcdc0778ea0c7087cbdd7e4c5c6cd7378b62c04be9bea0676",
           "FILE:@@//transcribe_rs/caption-schema/Cargo.toml ef09695c15c419036da2fd6eee72ec4ff8bcf2fc18ad85f1f476881010d9ee53",
-          "FILE:@@//transcribe_rs/caption-core/Cargo.toml 011e0c3cb71b31a99dccb189e104e9a31731b8b75afb6d03a1038ad68fc56ca0",
+          "FILE:@@//transcribe_rs/caption-core/Cargo.toml d074f2110f1b8b3dfb60e02835ba64ccebc132e23498d249c9148909aaf608f7",
           "FILE:@@//transcribe_rs/transcribe-rs/Cargo.toml 73c19427bae8c1d421affed3ba60afd73ad2801afd70a9faa83256c4951391bc",
           "FILE:@@//transcribe_rs/embed-rs/Cargo.toml 816f0a9991fda95e91cbbce5680b9da2b4284d2e586f73246847bf57117e6273"
         ],

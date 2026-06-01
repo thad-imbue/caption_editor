@@ -1,0 +1,731 @@
+---
+source: caption-core/tests/post_processing_pipeline.rs
+expression: "build_payload(\"parakeet\", 10)"
+---
+{
+  "processed": {
+    "num_segments": 10,
+    "segments": [
+      {
+        "duration": 3.2,
+        "end_time": 3.44,
+        "start_time": 0.24,
+        "text": "The birch canoe slid on the smooth planks."
+      },
+      {
+        "duration": 3.2,
+        "end_time": 7.2,
+        "start_time": 4.0,
+        "text": "Glue the sheet to the dark blue background."
+      },
+      {
+        "duration": 2.32,
+        "end_time": 9.76,
+        "start_time": 7.44,
+        "text": "It is easy to tell the depth of a well."
+      },
+      {
+        "duration": 3.04,
+        "end_time": 13.52,
+        "start_time": 10.48,
+        "text": "These days a chicken leg is a rare dish."
+      },
+      {
+        "duration": 2.8,
+        "end_time": 16.72,
+        "start_time": 13.92,
+        "text": "Rice is often served in round bowls."
+      },
+      {
+        "duration": 2.84,
+        "end_time": 19.8,
+        "start_time": 16.96,
+        "text": "The juice of lemons makes makes fine punch."
+      },
+      {
+        "duration": 2.76,
+        "end_time": 22.88,
+        "start_time": 20.12,
+        "text": "The box was thrown beside the parked truck."
+      },
+      {
+        "duration": 2.92,
+        "end_time": 26.36,
+        "start_time": 23.44,
+        "text": "The hogs were fed chopped corn and garbage."
+      },
+      {
+        "duration": 2.56,
+        "end_time": 29.32,
+        "start_time": 26.76,
+        "text": "Four hours of steady work work faced us."
+      },
+      {
+        "duration": 2.64,
+        "end_time": 32.44,
+        "start_time": 29.8,
+        "text": "A large size in stockings is hard to sell."
+      }
+    ]
+  },
+  "rawAsrOutput": {
+    "segments": [
+      {
+        "end": 3.44,
+        "start": 0.24,
+        "text": "The birch canoe slid on the smooth planks.",
+        "words": [
+          {
+            "end": 0.56,
+            "start": 0.24,
+            "word": "The"
+          },
+          {
+            "end": 1.12,
+            "start": 0.56,
+            "word": "birch"
+          },
+          {
+            "end": 1.6,
+            "start": 1.12,
+            "word": "canoe"
+          },
+          {
+            "end": 2.0,
+            "start": 1.6,
+            "word": "slid"
+          },
+          {
+            "end": 2.16,
+            "start": 2.0,
+            "word": "on"
+          },
+          {
+            "end": 2.24,
+            "start": 2.16,
+            "word": "the"
+          },
+          {
+            "end": 2.8,
+            "start": 2.24,
+            "word": "smooth"
+          },
+          {
+            "end": 3.44,
+            "start": 2.8,
+            "word": "planks."
+          }
+        ]
+      },
+      {
+        "end": 7.2,
+        "start": 4.0,
+        "text": "Glue the sheet to the dark blue background.",
+        "words": [
+          {
+            "end": 4.56,
+            "start": 4.0,
+            "word": "Glue"
+          },
+          {
+            "end": 4.72,
+            "start": 4.56,
+            "word": "the"
+          },
+          {
+            "end": 5.04,
+            "start": 4.72,
+            "word": "sheet"
+          },
+          {
+            "end": 5.2,
+            "start": 5.04,
+            "word": "to"
+          },
+          {
+            "end": 5.28,
+            "start": 5.2,
+            "word": "the"
+          },
+          {
+            "end": 5.6,
+            "start": 5.28,
+            "word": "dark"
+          },
+          {
+            "end": 6.0,
+            "start": 5.6,
+            "word": "blue"
+          },
+          {
+            "end": 7.2,
+            "start": 6.0,
+            "word": "background."
+          }
+        ]
+      },
+      {
+        "end": 9.76,
+        "start": 7.44,
+        "text": "It is easy to tell the depth of a well.",
+        "words": [
+          {
+            "end": 7.76,
+            "start": 7.44,
+            "word": "It"
+          },
+          {
+            "end": 7.92,
+            "start": 7.76,
+            "word": "is"
+          },
+          {
+            "end": 8.24,
+            "start": 7.92,
+            "word": "easy"
+          },
+          {
+            "end": 8.4,
+            "start": 8.24,
+            "word": "to"
+          },
+          {
+            "end": 8.64,
+            "start": 8.4,
+            "word": "tell"
+          },
+          {
+            "end": 8.72,
+            "start": 8.64,
+            "word": "the"
+          },
+          {
+            "end": 9.12,
+            "start": 8.72,
+            "word": "depth"
+          },
+          {
+            "end": 9.28,
+            "start": 9.12,
+            "word": "of"
+          },
+          {
+            "end": 9.44,
+            "start": 9.28,
+            "word": "a"
+          },
+          {
+            "end": 9.76,
+            "start": 9.44,
+            "word": "well."
+          }
+        ]
+      },
+      {
+        "end": 13.52,
+        "start": 10.48,
+        "text": "These days a chicken leg is a rare dish.",
+        "words": [
+          {
+            "end": 10.88,
+            "start": 10.48,
+            "word": "These"
+          },
+          {
+            "end": 11.2,
+            "start": 10.88,
+            "word": "days"
+          },
+          {
+            "end": 11.36,
+            "start": 11.28,
+            "word": "a"
+          },
+          {
+            "end": 11.84,
+            "start": 11.36,
+            "word": "chicken"
+          },
+          {
+            "end": 12.08,
+            "start": 11.84,
+            "word": "leg"
+          },
+          {
+            "end": 12.24,
+            "start": 12.08,
+            "word": "is"
+          },
+          {
+            "end": 12.32,
+            "start": 12.24,
+            "word": "a"
+          },
+          {
+            "end": 12.88,
+            "start": 12.32,
+            "word": "rare"
+          },
+          {
+            "end": 13.52,
+            "start": 12.88,
+            "word": "dish."
+          }
+        ]
+      },
+      {
+        "end": 16.72,
+        "start": 13.92,
+        "text": "Rice is often served in round bowls.",
+        "words": [
+          {
+            "end": 14.48,
+            "start": 13.92,
+            "word": "Rice"
+          },
+          {
+            "end": 14.64,
+            "start": 14.48,
+            "word": "is"
+          },
+          {
+            "end": 14.96,
+            "start": 14.64,
+            "word": "often"
+          },
+          {
+            "end": 15.28,
+            "start": 14.96,
+            "word": "served"
+          },
+          {
+            "end": 15.52,
+            "start": 15.28,
+            "word": "in"
+          },
+          {
+            "end": 15.92,
+            "start": 15.52,
+            "word": "round"
+          },
+          {
+            "end": 16.72,
+            "start": 15.92,
+            "word": "bowls."
+          }
+        ]
+      },
+      {
+        "end": 19.68,
+        "start": 16.96,
+        "text": "The juice of lemons makes fine punch",
+        "words": [
+          {
+            "end": 17.28,
+            "start": 16.96,
+            "word": "The"
+          },
+          {
+            "end": 17.6,
+            "start": 17.28,
+            "word": "juice"
+          },
+          {
+            "end": 17.76,
+            "start": 17.6,
+            "word": "of"
+          },
+          {
+            "end": 18.32,
+            "start": 17.76,
+            "word": "lemons"
+          },
+          {
+            "end": 18.64,
+            "start": 18.32,
+            "word": "makes"
+          },
+          {
+            "end": 19.12,
+            "start": 18.64,
+            "word": "fine"
+          },
+          {
+            "end": 19.68,
+            "start": 19.12,
+            "word": "punch"
+          }
+        ]
+      },
+      {
+        "end": 16.68,
+        "start": 15.24,
+        "text": "Served in round bowls.",
+        "words": [
+          {
+            "end": 15.48,
+            "start": 15.24,
+            "word": "Served"
+          },
+          {
+            "end": 15.64,
+            "start": 15.48,
+            "word": "in"
+          },
+          {
+            "end": 15.88,
+            "start": 15.64,
+            "word": "round"
+          },
+          {
+            "end": 16.68,
+            "start": 15.88,
+            "word": "bowls."
+          }
+        ]
+      },
+      {
+        "end": 19.8,
+        "start": 17.0,
+        "text": "The juice of lemons makes fine punch.",
+        "words": [
+          {
+            "end": 17.32,
+            "start": 17.0,
+            "word": "The"
+          },
+          {
+            "end": 17.64,
+            "start": 17.32,
+            "word": "juice"
+          },
+          {
+            "end": 17.8,
+            "start": 17.64,
+            "word": "of"
+          },
+          {
+            "end": 18.36,
+            "start": 17.8,
+            "word": "lemons"
+          },
+          {
+            "end": 18.68,
+            "start": 18.36,
+            "word": "makes"
+          },
+          {
+            "end": 19.16,
+            "start": 18.68,
+            "word": "fine"
+          },
+          {
+            "end": 19.8,
+            "start": 19.16,
+            "word": "punch."
+          }
+        ]
+      },
+      {
+        "end": 22.84,
+        "start": 20.12,
+        "text": "The box was thrown beside the park truck.",
+        "words": [
+          {
+            "end": 20.44,
+            "start": 20.12,
+            "word": "The"
+          },
+          {
+            "end": 20.84,
+            "start": 20.44,
+            "word": "box"
+          },
+          {
+            "end": 21.0,
+            "start": 20.84,
+            "word": "was"
+          },
+          {
+            "end": 21.32,
+            "start": 21.0,
+            "word": "thrown"
+          },
+          {
+            "end": 21.64,
+            "start": 21.32,
+            "word": "beside"
+          },
+          {
+            "end": 21.8,
+            "start": 21.64,
+            "word": "the"
+          },
+          {
+            "end": 22.28,
+            "start": 21.8,
+            "word": "park"
+          },
+          {
+            "end": 22.84,
+            "start": 22.28,
+            "word": "truck."
+          }
+        ]
+      },
+      {
+        "end": 22.88,
+        "start": 20.24,
+        "text": "The box was thrown beside the parked truck.",
+        "words": [
+          {
+            "end": 20.48,
+            "start": 20.24,
+            "word": "The"
+          },
+          {
+            "end": 20.8,
+            "start": 20.48,
+            "word": "box"
+          },
+          {
+            "end": 20.96,
+            "start": 20.8,
+            "word": "was"
+          },
+          {
+            "end": 21.36,
+            "start": 20.96,
+            "word": "thrown"
+          },
+          {
+            "end": 21.6,
+            "start": 21.36,
+            "word": "beside"
+          },
+          {
+            "end": 21.76,
+            "start": 21.6,
+            "word": "the"
+          },
+          {
+            "end": 22.16,
+            "start": 21.76,
+            "word": "parked"
+          },
+          {
+            "end": 22.88,
+            "start": 22.32,
+            "word": "truck."
+          }
+        ]
+      },
+      {
+        "end": 26.24,
+        "start": 23.44,
+        "text": "The hogs were fed chopped corn and garbage.",
+        "words": [
+          {
+            "end": 23.68,
+            "start": 23.44,
+            "word": "The"
+          },
+          {
+            "end": 24.08,
+            "start": 23.68,
+            "word": "hogs"
+          },
+          {
+            "end": 24.24,
+            "start": 24.08,
+            "word": "were"
+          },
+          {
+            "end": 24.56,
+            "start": 24.24,
+            "word": "fed"
+          },
+          {
+            "end": 25.04,
+            "start": 24.56,
+            "word": "chopped"
+          },
+          {
+            "end": 25.28,
+            "start": 25.04,
+            "word": "corn"
+          },
+          {
+            "end": 25.44,
+            "start": 25.28,
+            "word": "and"
+          },
+          {
+            "end": 26.24,
+            "start": 25.44,
+            "word": "garbage."
+          }
+        ]
+      },
+      {
+        "end": 29.28,
+        "start": 26.8,
+        "text": "Four hours of steady work faced us.",
+        "words": [
+          {
+            "end": 27.2,
+            "start": 26.8,
+            "word": "Four"
+          },
+          {
+            "end": 27.44,
+            "start": 27.2,
+            "word": "hours"
+          },
+          {
+            "end": 27.68,
+            "start": 27.44,
+            "word": "of"
+          },
+          {
+            "end": 28.08,
+            "start": 27.68,
+            "word": "steady"
+          },
+          {
+            "end": 28.4,
+            "start": 28.08,
+            "word": "work"
+          },
+          {
+            "end": 28.96,
+            "start": 28.4,
+            "word": "faced"
+          },
+          {
+            "end": 29.28,
+            "start": 28.96,
+            "word": "us."
+          }
+        ]
+      },
+      {
+        "end": 26.36,
+        "start": 25.16,
+        "text": "Corn and garbage.",
+        "words": [
+          {
+            "end": 25.32,
+            "start": 25.16,
+            "word": "Corn"
+          },
+          {
+            "end": 25.56,
+            "start": 25.4,
+            "word": "and"
+          },
+          {
+            "end": 26.36,
+            "start": 25.56,
+            "word": "garbage."
+          }
+        ]
+      },
+      {
+        "end": 29.32,
+        "start": 26.76,
+        "text": "Four hours of steady work faced us.",
+        "words": [
+          {
+            "end": 27.24,
+            "start": 26.76,
+            "word": "Four"
+          },
+          {
+            "end": 27.48,
+            "start": 27.24,
+            "word": "hours"
+          },
+          {
+            "end": 27.64,
+            "start": 27.48,
+            "word": "of"
+          },
+          {
+            "end": 28.04,
+            "start": 27.64,
+            "word": "steady"
+          },
+          {
+            "end": 28.2,
+            "start": 28.04,
+            "word": "work"
+          },
+          {
+            "end": 29.0,
+            "start": 28.44,
+            "word": "faced"
+          },
+          {
+            "end": 29.32,
+            "start": 29.0,
+            "word": "us."
+          }
+        ]
+      },
+      {
+        "end": 32.44,
+        "start": 29.8,
+        "text": "A large size in stockings is hard to sell.",
+        "words": [
+          {
+            "end": 30.04,
+            "start": 29.8,
+            "word": "A"
+          },
+          {
+            "end": 30.44,
+            "start": 30.04,
+            "word": "large"
+          },
+          {
+            "end": 30.76,
+            "start": 30.44,
+            "word": "size"
+          },
+          {
+            "end": 30.92,
+            "start": 30.76,
+            "word": "in"
+          },
+          {
+            "end": 31.4,
+            "start": 30.92,
+            "word": "stockings"
+          },
+          {
+            "end": 31.56,
+            "start": 31.4,
+            "word": "is"
+          },
+          {
+            "end": 31.88,
+            "start": 31.56,
+            "word": "hard"
+          },
+          {
+            "end": 32.12,
+            "start": 31.88,
+            "word": "to"
+          },
+          {
+            "end": 32.44,
+            "start": 32.12,
+            "word": "sell."
+          }
+        ]
+      }
+    ],
+    "version": 1
+  }
+}
