@@ -58,7 +58,11 @@ struct Args {
     /// Overlap between chunks in seconds.
     #[clap(long, short = 'v', default_value_t = 5)]
     overlap: u32,
-    /// HF model id for the ONNX-exported parakeet weights.
+    /// HF model id for the ONNX-exported parakeet weights, OR a local
+    /// directory containing encoder-model.onnx + decoder_joint-model.onnx +
+    /// vocab.txt. If the value resolves as an existing directory on disk
+    /// we use it as-is; otherwise we treat it as an HF repo id and fetch
+    /// via hf-hub into the shared HF cache.
     #[clap(long, short = 'm', default_value = DEFAULT_MODEL)]
     model: String,
     /// Maximum gap between words inside a segment before splitting.
@@ -71,10 +75,11 @@ struct Args {
     /// Required for tests that snapshot the .captions_json5 output.
     #[clap(long)]
     deterministic_ids: bool,
-    /// Whether to automatically run speaker embedding (via `embed-rs`) after
-    /// transcription. Matches Python's `--embed/--no-embed` default-true.
-    #[clap(long, default_value_t = true, action = clap::ArgAction::Set)]
-    embed: bool,
+    /// Skip the automatic speaker-embedding step (default behavior is to
+    /// invoke `embed-rs` against the just-written file, matching Python's
+    /// default-on `--embed`).
+    #[clap(long)]
+    no_embed: bool,
     /// Path to the `embed-rs` binary. If unset, auto-discovers a sibling
     /// `embed-rs` next to this binary, then falls back to `embed-rs` on PATH.
     #[clap(long)]
@@ -87,7 +92,7 @@ struct Args {
     min_segment_duration: f64,
     /// Remux MP3 inputs in place to add a Xing seek table (matches Python's
     /// --remux-mp3). Browsers need this for accurate <audio> seeking on VBR MP3.
-    #[clap(long, default_value_t = false, action = clap::ArgAction::Set)]
+    #[clap(long)]
     remux_mp3: bool,
 }
 
@@ -130,7 +135,17 @@ fn main() -> Result<()> {
     let (samples_f32, sample_rate, channels) = read_wav_f32_mono(&wav_path)?;
 
     eprintln!("Loading parakeet model: {}", args.model);
-    let model_dir = download_parakeet_onnx(&args.model)?;
+    // Local-dir fast path: if `--model` is an existing directory, skip hf-hub.
+    // Lets us point at our own freshly-exported ONNX without uploading it first.
+    let model_dir = {
+        let local = PathBuf::from(&args.model);
+        if local.is_dir() {
+            eprintln!("  using local model dir: {}", local.display());
+            local
+        } else {
+            download_parakeet_onnx(&args.model)?
+        }
+    };
     let mut parakeet = ParakeetTDT::from_pretrained(&model_dir, None)
         .map_err(|e| eyre!("ParakeetTDT::from_pretrained: {e}"))?;
 
@@ -184,7 +199,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("write {}", output.display()))?;
     eprintln!("Wrote {} segments to {}", doc.segments.len(), output.display());
 
-    if args.embed {
+    if !args.no_embed {
         run_embed_step(&output, &args)?;
     }
     Ok(())
@@ -286,8 +301,16 @@ fn ensure_wav(media: &Path, temp_dir: &tempfile::TempDir) -> Result<PathBuf> {
         .extension()
         .and_then(|s| s.to_str())
         .map(str::to_ascii_lowercase);
+    // Pass-through only if it's already a WAV *and* 16 kHz mono — parakeet
+    // expects exactly that. Otherwise (different sample rate / channel
+    // count / container) re-encode through ffmpeg.
     if matches!(lower.as_deref(), Some("wav") | Some("wave")) {
-        return Ok(media.to_path_buf());
+        if let Ok(reader) = hound::WavReader::open(media) {
+            let spec = reader.spec();
+            if spec.sample_rate == TARGET_SAMPLE_RATE && spec.channels == 1 {
+                return Ok(media.to_path_buf());
+            }
+        }
     }
     eprintln!("Converting {} to 16kHz mono WAV via ffmpeg...", media.display());
     let out_path = temp_dir.path().join("audio.wav");
