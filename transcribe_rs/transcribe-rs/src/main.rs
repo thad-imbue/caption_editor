@@ -71,6 +71,24 @@ struct Args {
     /// Required for tests that snapshot the .captions_json5 output.
     #[clap(long)]
     deterministic_ids: bool,
+    /// Whether to automatically run speaker embedding (via `embed-rs`) after
+    /// transcription. Matches Python's `--embed/--no-embed` default-true.
+    #[clap(long, default_value_t = true, action = clap::ArgAction::Set)]
+    embed: bool,
+    /// Path to the `embed-rs` binary. If unset, auto-discovers a sibling
+    /// `embed-rs` next to this binary, then falls back to `embed-rs` on PATH.
+    #[clap(long)]
+    embed_bin: Option<PathBuf>,
+    /// HF model id for the embedding model (forwarded to `embed-rs --model`).
+    #[clap(long, default_value = "pyannote/wespeaker-voxceleb-resnet34-LM")]
+    embed_model: String,
+    /// Shortest segment (seconds) to embed. Forwarded to `embed-rs`.
+    #[clap(long, default_value_t = 0.3)]
+    min_segment_duration: f64,
+    /// Remux MP3 inputs in place to add a Xing seek table (matches Python's
+    /// --remux-mp3). Browsers need this for accurate <audio> seeking on VBR MP3.
+    #[clap(long, default_value_t = false, action = clap::ArgAction::Set)]
+    remux_mp3: bool,
 }
 
 fn main() -> Result<()> {
@@ -90,6 +108,21 @@ fn main() -> Result<()> {
     eprintln!("Transcribing: {}", args.media_file.display());
     eprintln!("Output: {}", output.display());
     eprintln!("Chunk size: {}s, Overlap: {}s", args.chunk_size, args.overlap);
+
+    // Optional MP3 remux pass — matches Python's --remux-mp3. Done before
+    // anything else so the on-disk file (saved into metadata.mediaFilePath
+    // and used by embed-rs) is the seekable copy.
+    if args.remux_mp3
+        && args
+            .media_file
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+            == Some("mp3")
+    {
+        remux_mp3_in_place(&args.media_file)?;
+    }
 
     let temp_dir = tempfile::tempdir()?;
     let wav_path = ensure_wav(&args.media_file, &temp_dir)?;
@@ -150,12 +183,103 @@ fn main() -> Result<()> {
     std::fs::write(&output, serialized)
         .with_context(|| format!("write {}", output.display()))?;
     eprintln!("Wrote {} segments to {}", doc.segments.len(), output.display());
+
+    if args.embed {
+        run_embed_step(&output, &args)?;
+    }
     Ok(())
+}
+
+/// Run `embed-rs` against the freshly-written captions file, matching Python
+/// transcribe_cli's `--embed` default-on behavior.
+fn run_embed_step(captions_path: &Path, args: &Args) -> Result<()> {
+    let bin = resolve_embed_bin(args.embed_bin.as_deref())?;
+    eprintln!("Auto-embedding via {} ...", bin.display());
+    let status = Command::new(&bin)
+        .arg(captions_path)
+        .args(["--model", &args.embed_model])
+        .args([
+            "--min-segment-duration",
+            &args.min_segment_duration.to_string(),
+        ])
+        .status()
+        .with_context(|| format!("spawn {}", bin.display()))?;
+    if !status.success() {
+        return Err(eyre!("embed-rs exited with {status}"));
+    }
+    Ok(())
+}
+
+fn resolve_embed_bin(explicit: Option<&Path>) -> Result<PathBuf> {
+    if let Some(p) = explicit {
+        return Ok(p.to_path_buf());
+    }
+    // First try a sibling embed-rs next to this binary. Both binaries land
+    // next to each other in `bazel-bin/transcribe_rs/{transcribe,embed}-rs/`
+    // and would normally be installed side-by-side too.
+    if let Ok(me) = std::env::current_exe() {
+        if let Some(parent) = me.parent() {
+            // Common shipping layouts: `/usr/local/bin/embed-rs` next to
+            // transcribe-rs, or in a sibling dir under bazel-bin.
+            for candidate in [
+                parent.join("embed-rs"),
+                parent.join("../embed-rs/embed-rs"),
+            ] {
+                if candidate.exists() {
+                    return Ok(candidate);
+                }
+            }
+        }
+    }
+    // Final fallback: bare name → PATH lookup by the OS.
+    Ok(PathBuf::from("embed-rs"))
 }
 
 // ---------------------------------------------------------------------------
 // Audio + IO helpers
 // ---------------------------------------------------------------------------
+
+/// Re-encode an MP3 in place with a Xing seek table so VBR playback in
+/// browsers seeks accurately. Backs the original up to `<name>.original.mp3`.
+/// Mirrors Python's `remux_mp3_with_seek_table` in transcribe_cli.py.
+fn remux_mp3_in_place(mp3: &Path) -> Result<()> {
+    eprintln!("Remuxing MP3 to add seek table: {}", mp3.display());
+    let parent = mp3.parent().unwrap_or_else(|| Path::new("."));
+    let tmp = tempfile::Builder::new()
+        .suffix(".mp3")
+        .tempfile_in(parent)?;
+    let tmp_path = tmp.path().to_path_buf();
+    // tempfile holds an open fd on the path; ffmpeg needs to (re)write it,
+    // so we let the NamedTempFile drop later but pass the path string.
+    drop(tmp);
+
+    let status = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            &mp3.to_string_lossy(),
+            "-c",
+            "copy",
+            "-write_xing",
+            "1",
+            &tmp_path.to_string_lossy(),
+        ])
+        .status();
+    let success = matches!(status, Ok(s) if s.success());
+    if !success {
+        eprintln!("Warning: ffmpeg remux failed; leaving MP3 unchanged");
+        let _ = std::fs::remove_file(&tmp_path);
+        return Ok(());
+    }
+    let backup = mp3.with_extension("original.mp3");
+    std::fs::copy(mp3, &backup).with_context(|| format!("backup → {}", backup.display()))?;
+    eprintln!("Original MP3 backed up to: {}", backup.display());
+    std::fs::rename(&tmp_path, mp3).with_context(|| format!("rename {tmp_path:?} → {mp3:?}"))?;
+    eprintln!("Remuxed MP3 in-place: {}", mp3.display());
+    Ok(())
+}
 
 fn ensure_wav(media: &Path, temp_dir: &tempfile::TempDir) -> Result<PathBuf> {
     let lower = media
