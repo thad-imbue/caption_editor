@@ -13,8 +13,32 @@
 
 use parakeet_rs::TimedToken;
 
-/// Group raw subword tokens into words. SentencePiece marker (▁) or leading
-/// space starts a new word; trailing punctuation gets attached.
+/// Group raw subword tokens into words.
+///
+/// Rules (diverges from upstream parakeet-rs to give cleaner semantics):
+///   - SentencePiece marker (▁) or leading space → new word.
+///   - Pure-punctuation tokens (`.`, `?`, `!`, `,`, etc.) **attach to the
+///     previous word's text** but do *not* affect its timing. So a period
+///     coming after "Tim" produces a single word `{text: "Tim.", start: T0,
+///     end: T1}` where T1 is the end of the spoken "Tim" sound, not the
+///     end of the punctuation token's extent.
+///   - A pure-punctuation token with no preceding content is dropped.
+///   - Apostrophes and hyphens still attach (so contractions and hyphenated
+///     compounds stay together).
+///
+/// Why this differs from upstream parakeet-rs (which emits standalone `.`
+/// words) and from NeMo's PyTorch path (which DOES attach but uses the
+/// punctuation token's end as the word end):
+///
+/// 1. Punctuation is typographic — there's no "audio" being pronounced. A
+///    word's `[start, end]` should be the duration of the spoken sound, not
+///    silence plus a marker glued onto the end. Burying chunk-boundary
+///    silence into the word's end-time was the proximate cause of our
+///    spurious overlap merges (fixed in the previous commit at the sentence
+///    level; this finishes the same job at the word level).
+/// 2. `words[].text` still concatenates back to the formatted sentence
+///    (`" ".join(...)` of `["My", "name", "is", "Tim."]` is
+///    `"My name is Tim."`), so the data model is internally consistent.
 pub fn group_by_words(tokens: &[TimedToken]) -> Vec<TimedToken> {
     if tokens.is_empty() {
         return Vec::new();
@@ -23,22 +47,52 @@ pub fn group_by_words(tokens: &[TimedToken]) -> Vec<TimedToken> {
     let mut words = Vec::new();
     let mut current_word_text = String::new();
     let mut current_word_start = 0.0;
+    // `last_content_end` is the end-time of the last *non-punctuation* token
+    // we accumulated into the current word. We close the word with this
+    // value rather than `tokens[i-1].end` so trailing punctuation doesn't
+    // stretch the word's timestamp into the silence after.
+    let mut last_content_end = 0.0;
     let mut last_word_lower = String::new();
 
-    for (i, token) in tokens.iter().enumerate() {
-        if token.text.trim().is_empty() {
-            if !current_word_text.is_empty() {
-                let word_lower = current_word_text.to_lowercase();
-                if word_lower != last_word_lower {
-                    words.push(TimedToken {
-                        text: current_word_text.clone(),
-                        start: current_word_start,
-                        end: if i > 0 { tokens[i - 1].end } else { token.end },
-                    });
-                    last_word_lower = word_lower;
-                }
-                current_word_text.clear();
+    // Helper to emit (or dedup) the current word. Returns true if a word
+    // was actually pushed; resets the accumulator either way.
+    let flush_word =
+        |words: &mut Vec<TimedToken>,
+         text: &mut String,
+         start: f32,
+         end: f32,
+         last_lower: &mut String| {
+            if text.is_empty() {
+                return;
             }
+            // Drop entries that are pure punctuation with no content (no
+            // spoken word attached): no audio, no place in the words list.
+            if text.chars().all(|c| c.is_ascii_punctuation()) {
+                text.clear();
+                return;
+            }
+            let word_lower = text.to_lowercase();
+            if word_lower != *last_lower {
+                words.push(TimedToken {
+                    text: text.clone(),
+                    start,
+                    end,
+                });
+                *last_lower = word_lower;
+            }
+            text.clear();
+        };
+
+    for (i, token) in tokens.iter().enumerate() {
+        // Whitespace-only tokens act as word boundaries (and contribute no text).
+        if token.text.trim().is_empty() {
+            flush_word(
+                &mut words,
+                &mut current_word_text,
+                current_word_start,
+                last_content_end,
+                &mut last_word_lower,
+            );
             continue;
         }
 
@@ -49,43 +103,55 @@ pub fn group_by_words(tokens: &[TimedToken]) -> Vec<TimedToken> {
         let is_contraction = token_without_marker.starts_with('\'');
         let is_hyphenation = token_without_marker.starts_with('-');
 
-        let starts_word =
-            (token.text.starts_with('▁') || token.text.starts_with(' ') || is_pure_punctuation)
-                && !is_contraction
-                && !is_hyphenation
-                || i == 0;
+        // Pure-punctuation NO LONGER starts a new word. It attaches to the
+        // previous word's text (and is dropped if there's nothing to attach to).
+        let starts_word = (token.text.starts_with('▁') || token.text.starts_with(' '))
+            && !is_contraction
+            && !is_hyphenation
+            || i == 0;
 
         if starts_word && !current_word_text.is_empty() {
-            let word_lower = current_word_text.to_lowercase();
-            if word_lower != last_word_lower {
-                words.push(TimedToken {
-                    text: current_word_text.clone(),
-                    start: current_word_start,
-                    end: tokens[i - 1].end,
-                });
-                last_word_lower = word_lower;
-            }
-            current_word_text.clear();
+            flush_word(
+                &mut words,
+                &mut current_word_text,
+                current_word_start,
+                last_content_end,
+                &mut last_word_lower,
+            );
         }
 
         if current_word_text.is_empty() {
+            // For a first-of-word punctuation that survived to here (i==0
+            // case), there's nothing to attach to — give it the token's
+            // start so a later content token sets the real start.
             current_word_start = token.start;
         }
 
         let token_text = token.text.trim_start_matches('▁').trim_start_matches(' ');
         current_word_text.push_str(token_text);
-    }
 
-    if !current_word_text.is_empty() {
-        let word_lower = current_word_text.to_lowercase();
-        if word_lower != last_word_lower {
-            words.push(TimedToken {
-                text: current_word_text,
-                start: current_word_start,
-                end: tokens.last().unwrap().end,
-            });
+        // Punctuation contributes text but NOT timing — keep last_content_end.
+        if !is_pure_punctuation {
+            last_content_end = token.end;
+            // Edge case: if the very first token of the word was punctuation
+            // (we kept its start as current_word_start above), but the first
+            // real content arrives now, anchor the start here so the word's
+            // [start, end] still describes spoken audio only.
+            if current_word_text.trim_end_matches(|c: char| c.is_ascii_punctuation())
+                == token_text
+            {
+                current_word_start = token.start;
+            }
         }
     }
+
+    flush_word(
+        &mut words,
+        &mut current_word_text,
+        current_word_start,
+        last_content_end,
+        &mut last_word_lower,
+    );
 
     words
 }
