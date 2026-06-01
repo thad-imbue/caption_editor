@@ -1,0 +1,12 @@
+# Workspace root for the Rust transcribe port (//transcribe_rs/).
+# Crates are siblings; BUILD files live alongside each Cargo.toml.
+
+# Export the workspace manifests + lockfile so the crate_universe extension
+# in MODULE.bazel can read them from labels.
+exports_files(
+    [
+        "Cargo.toml",
+        "Cargo.lock",
+    ],
+    visibility = ["//visibility:public"],
+)

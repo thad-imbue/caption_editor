@@ -1,0 +1,31 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+exports_files(
+    ["Cargo.toml"],
+    visibility = ["//visibility:public"],
+)
+
+# Rust port of transcribe/asr_results_to_captions.py post-processing.
+rust_library(
+    name = "caption_core",
+    srcs = ["src/lib.rs"],
+    aliases = aliases(),
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True) + [
+        "//transcribe_rs/caption-schema:caption_schema",
+    ],
+    visibility = ["//transcribe_rs:__subpackages__"],
+)
+
+rust_test(
+    name = "caption_core_test",
+    aliases = aliases(normal_dev = True, proc_macro_dev = True),
+    crate = ":caption_core",
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True, proc_macro_dev = True),
+    deps = all_crate_deps(normal = True, normal_dev = True) + [
+        "//transcribe_rs/caption-schema:caption_schema",
+    ],
+)

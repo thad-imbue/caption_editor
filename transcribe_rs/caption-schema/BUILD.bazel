@@ -1,0 +1,27 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+exports_files(
+    ["Cargo.toml"],
+    visibility = ["//visibility:public"],
+)
+
+# Serde mirror of transcribe/schema.py + src/types/schema.ts.
+rust_library(
+    name = "caption_schema",
+    srcs = ["src/lib.rs"],
+    aliases = aliases(),
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True),
+    visibility = ["//transcribe_rs:__subpackages__"],
+)
+
+rust_test(
+    name = "caption_schema_test",
+    aliases = aliases(normal_dev = True, proc_macro_dev = True),
+    crate = ":caption_schema",
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True, proc_macro_dev = True),
+    deps = all_crate_deps(normal = True, normal_dev = True),
+)
