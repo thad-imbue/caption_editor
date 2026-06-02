@@ -3,13 +3,11 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { exec, type ChildProcess } from 'child_process'
-import { promisify } from 'util'
+import { type ChildProcess } from 'child_process'
 import * as os from 'os'
-import { APP_VERSION, UV_VERSION, ASR_COMMIT_HASH, ASR_GITHUB_REPO } from './constants'
+import { APP_VERSION, ASR_GITHUB_REPO } from './constants'
 import { findBackupPath } from '../src/utils/fileUtils'
 
-const execAsync = promisify(exec)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -765,21 +763,32 @@ ipcMain.on('menu:updateAsrEnabled', (_event, options: boolean | { caption?: bool
 })
 
 /**
- * Ensures uv and uvx binaries are available in the ~/.cache/caption_editor/bin directory.
- * Downloads them from GitHub releases if missing.
+ * Ensures the Rust ASR binaries (transcribe-rs, embed-rs) for the current
+ * APP_VERSION are present in ~/.cache/caption_editor/bin/rust-asr-v${APP_VERSION}/.
+ *
+ * Downloads them from the matching GitHub Release on first use:
+ *   https://github.com/<repo>/releases/download/v${APP_VERSION}/<name>-v${APP_VERSION}-darwin-arm64
+ *
+ * Cache key is the version directory itself — so an APP_VERSION bump
+ * invalidates the cache automatically and forces a re-download, while
+ * downgrading to a previous version keeps that version's binaries
+ * around for offline use.
  */
-async function ensureUvBinaries(onLog?: (msg: string) => void): Promise<{ uv: string, uvx: string }> {
+async function ensureRustAsrBinaries(onLog?: (msg: string) => void): Promise<{
+  transcribeRs: string
+  embedRs: string
+}> {
   const cacheDir = path.join(os.homedir(), '.cache', 'caption_editor')
-  const binDir = path.join(cacheDir, 'bin')
-  if (!existsSync(binDir)) {
-    mkdirSync(binDir, { recursive: true })
+  const versionDir = path.join(cacheDir, 'bin', `rust-asr-v${APP_VERSION}`)
+  if (!existsSync(versionDir)) {
+    mkdirSync(versionDir, { recursive: true })
   }
 
-  const uvPath = path.join(binDir, 'uv')
-  const uvxPath = path.join(binDir, 'uvx')
+  const transcribeRsPath = path.join(versionDir, 'transcribe-rs')
+  const embedRsPath = path.join(versionDir, 'embed-rs')
 
-  if (existsSync(uvPath) && existsSync(uvxPath)) {
-    return { uv: uvPath, uvx: uvxPath }
+  if (existsSync(transcribeRsPath) && existsSync(embedRsPath)) {
+    return { transcribeRs: transcribeRsPath, embedRs: embedRsPath }
   }
 
   const log = (msg: string) => {
@@ -787,51 +796,55 @@ async function ensureUvBinaries(onLog?: (msg: string) => void): Promise<{ uv: st
     if (onLog) onLog(msg + '\n')
   }
 
-  log(`UV binaries missing. Downloading version ${UV_VERSION}...`)
+  if (process.arch !== 'arm64' || process.platform !== 'darwin') {
+    throw new Error(
+      `Rust ASR binaries are only published for darwin-arm64 (current: ${process.platform}-${process.arch}). ` +
+      `Build locally with bazelisk and point CAPTION_EDITOR_TRANSCRIBE_RS_BIN at the binary.`
+    )
+  }
 
-  const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64'
-  const platform = process.platform === 'darwin' ? 'apple-darwin' : 'unknown-linux-musl'
-  const assetName = `uv-${arch}-${platform}.tar.gz`
-  const downloadUrl = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${assetName}`
-  const tarPath = path.join(binDir, assetName)
+  // The repo's GitHub Release page hosts assets at predictable URLs. Strip
+  // the `git+`/`.git` prefixes from ASR_GITHUB_REPO that exist for the uvx
+  // pip-spec format; the bare https://github.com/<owner>/<repo> form is
+  // what `releases/download/...` paths are built from.
+  const httpRepo = ASR_GITHUB_REPO
+    .replace(/^git\+/, '')
+    .replace(/\.git$/, '')
+  const tag = `v${APP_VERSION}`
+  const suffix = `-${tag}-darwin-arm64`
+
+  log(`Rust ASR binaries missing for ${tag}. Downloading from GitHub Release...`)
+
+  const downloadOne = async (name: 'transcribe-rs' | 'embed-rs', destPath: string) => {
+    const assetName = `${name}${suffix}`
+    const url = `${httpRepo}/releases/download/${tag}/${assetName}`
+    log(`  ${name}: ${url}`)
+    const response = await net.fetch(url, { redirect: 'follow' })
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download ${assetName} from ${url}: HTTP ${response.status} ${response.statusText}. ` +
+        `Has the v${APP_VERSION} release been published with the Rust binaries attached?`
+      )
+    }
+    const buf = Buffer.from(await response.arrayBuffer())
+    await fs.writeFile(destPath, buf)
+    await fs.chmod(destPath, 0o755)
+  }
 
   try {
-    log(`Downloading from ${downloadUrl}...`)
-    const response = await net.fetch(downloadUrl)
-    if (!response.ok) throw new Error(`Failed to download uv: ${response.statusText}`)
-
-    const buffer = await response.arrayBuffer()
-    await fs.writeFile(tarPath, Buffer.from(buffer))
-
-    log(`Extracting ${assetName}...`)
-    const extractDir = path.join(binDir, 'extract')
-    if (existsSync(extractDir)) await fs.rm(extractDir, { recursive: true, force: true })
-    mkdirSync(extractDir)
-
-    await execAsync(`tar -xzf "${tarPath}" -C "${extractDir}"`)
-
-    const subfolder = assetName.replace('.tar.gz', '')
-    const extractedUv = path.join(extractDir, subfolder, 'uv')
-    const extractedUvx = path.join(extractDir, subfolder, 'uvx')
-
-    if (!existsSync(extractedUv)) {
-      throw new Error(`Could not find uv binary in extracted archive ${assetName}`)
+    await downloadOne('transcribe-rs', transcribeRsPath)
+    await downloadOne('embed-rs', embedRsPath)
+    log(`Rust ASR binaries installed in ${versionDir}`)
+    return { transcribeRs: transcribeRsPath, embedRs: embedRsPath }
+  } catch (err) {
+    // Don't leave half-downloaded binaries that would short-circuit the
+    // existsSync check on the next call.
+    for (const p of [transcribeRsPath, embedRsPath]) {
+      if (existsSync(p)) {
+        try { await fs.unlink(p) } catch { /* ignore */ }
+      }
     }
-
-    await fs.rename(extractedUv, uvPath)
-    await fs.rename(extractedUvx, uvxPath)
-
-    await fs.rm(extractDir, { recursive: true, force: true })
-    await fs.unlink(tarPath)
-
-    await fs.chmod(uvPath, 0o755)
-    await fs.chmod(uvxPath, 0o755)
-
-    log(`UV binaries successfully installed to ${binDir}`)
-    return { uv: uvPath, uvx: uvxPath }
-  } catch (error) {
-    log(`Failed to ensure UV binaries: ${error}`)
-    throw error
+    throw err
   }
 }
 
@@ -897,7 +910,6 @@ async function runAsrTool(options: {
   let pythonCommand: string
   let pythonArgs: string[]
   let cwd: string
-  let tempOverridesPath: string | null = null
 
   // Rust ASR bypass. When CAPTION_EDITOR_TRANSCRIBE_RS_BIN or _EMBED_RS_BIN are
   // set, invoke the //transcribe_rs/ Rust binary directly instead of uvx/Python.
@@ -953,39 +965,31 @@ async function runAsrTool(options: {
       throw new Error(`${script} not found at ${scriptPath}`)
     }
   } else {
-    // Production mode: use downloaded uvx
-    const { uvx } = await ensureUvBinaries((msg) => sendOutput('stdout', msg))
-    pythonCommand = uvx
-
-    const entryPoint = script.replace('.py', '')
-    const overridesPath = path.join(__dirname, '..', 'electron', 'overrides.txt')
-    // uvx has issues with spaces in file paths in some environments.
-    // Our repo path often includes spaces (e.g. "Imbue Dropbox"), so copy
-    // overrides.txt to a temp path with no spaces before invoking uvx.
-    const overridesPathForUvx = path.join(os.tmpdir(), `caption_editor_overrides_${processId}.txt`)
-    pythonArgs = [
-      // Pin Python to 3.12: kaldialign (transitive via nemo-toolkit) has no
-      // prebuilt wheel for cpython-313 on macOS arm64, so an unpinned uvx on
-      // a 3.13 system tries a source build and fails without cmake. 3.12 has
-      // wheels and matches transcribe/pyproject.toml's `requires-python<3.13`.
-      '--python', '3.12',
-      '--from', `${ASR_GITHUB_REPO}@${ASR_COMMIT_HASH}#subdirectory=transcribe`,
-      '--overrides', overridesPathForUvx,
-      entryPoint,
-      inputPath
-    ]
-    cwd = os.tmpdir()
-
-    if (script === 'transcribe_cli.py' && chunkSize !== undefined) {
-      pythonArgs.push('--chunk-size', chunkSize.toString())
+    // Production mode: download the Rust ASR binaries for the current
+    // APP_VERSION from the GitHub Release and invoke them directly.
+    // First call pays the network cost (~80 MB across both binaries),
+    // subsequent calls hit the on-disk cache in
+    // ~/.cache/caption_editor/bin/rust-asr-v${APP_VERSION}/.
+    const { transcribeRs, embedRs } = await ensureRustAsrBinaries((msg) =>
+      sendOutput('stdout', msg),
+    )
+    pythonCommand = (script === 'transcribe_cli.py' ? transcribeRs : embedRs)
+    pythonArgs = [inputPath]
+    if (script === 'transcribe_cli.py') {
+      if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
+      if (model) pythonArgs.push('--model', model)
+      if (remuxMp3) pythonArgs.push('--remux-mp3')
+      // transcribe-rs auto-embeds via a sibling embed-rs binary; the
+      // download lands both binaries in the same dir so its
+      // auto-discovery (current_exe parent → embed-rs) already works,
+      // but passing --embed-bin makes it explicit and survives any
+      // future install layout changes.
+      pythonArgs.push('--embed-bin', embedRs)
+    } else {
+      // embed_cli.py → embed-rs
+      if (model) pythonArgs.push('--model', model)
     }
-    if (model) pythonArgs.push('--model', model)
-    if (script === 'transcribe_cli.py' && remuxMp3) pythonArgs.push('--remux-mp3')
-
-    if (!existsSync(pythonCommand)) throw new Error(`UV/UVX binary not found at ${pythonCommand}`)
-    if (!existsSync(overridesPath)) throw new Error(`overrides.txt not found at ${overridesPath}`)
-    await fs.copyFile(overridesPath, overridesPathForUvx)
-    tempOverridesPath = overridesPathForUvx
+    cwd = os.tmpdir()
   }
 
   options.senderWebContents?.send('asr:started', { processId })
@@ -1041,9 +1045,6 @@ async function runAsrTool(options: {
 
     proc.on('close', (code) => {
       activeProcesses.delete(processId)
-      if (tempOverridesPath) {
-        fs.unlink(tempOverridesPath).catch(() => { })
-      }
       if (code === 0) {
         resolve({ success: true, script, processId })
       } else if (canceled || code === 143) {
@@ -1059,9 +1060,6 @@ async function runAsrTool(options: {
 
     proc.on('error', (err) => {
       activeProcesses.delete(processId)
-      if (tempOverridesPath) {
-        fs.unlink(tempOverridesPath).catch(() => { })
-      }
       if (canceled) {
         resolve({ success: false, error: 'Canceled', canceled: true })
       } else {
