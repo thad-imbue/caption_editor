@@ -899,7 +899,41 @@ async function runAsrTool(options: {
   let cwd: string
   let tempOverridesPath: string | null = null
 
-  if (isDev) {
+  // Rust ASR bypass. When CAPTION_EDITOR_TRANSCRIBE_RS_BIN or _EMBED_RS_BIN are
+  // set, invoke the //transcribe_rs/ Rust binary directly instead of uvx/Python.
+  // Args are wire-compatible with the Python CLI (we kept --model, --chunk-size,
+  // --remux-mp3 flag names identical so this swap is a drop-in). Setting just
+  // one of the two vars is fine — e.g. test transcribe-rs while still embedding
+  // via the Python pipeline.
+  const transcribeRsBin = process.env.CAPTION_EDITOR_TRANSCRIBE_RS_BIN
+  const embedRsBin = process.env.CAPTION_EDITOR_EMBED_RS_BIN
+  const useRust =
+    (script === 'transcribe_cli.py' && transcribeRsBin) ||
+    (script === 'embed_cli.py' && embedRsBin)
+
+  if (useRust) {
+    pythonCommand = (script === 'transcribe_cli.py' ? transcribeRsBin : embedRsBin)!
+    if (!existsSync(pythonCommand)) {
+      throw new Error(`Rust ASR binary not found at ${pythonCommand}`)
+    }
+    pythonArgs = [inputPath]
+    if (script === 'transcribe_cli.py') {
+      if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
+      if (model) pythonArgs.push('--model', model)
+      if (remuxMp3) pythonArgs.push('--remux-mp3')
+      // The Python --embed default is true, so the GUI's "transcribe" handler
+      // expects embeddings to be present afterward. transcribe-rs defaults
+      // to --embed too; it shells out to a sibling embed-rs binary. Help
+      // that resolution along by passing --embed-bin if we know it.
+      if (embedRsBin && existsSync(embedRsBin)) {
+        pythonArgs.push('--embed-bin', embedRsBin)
+      }
+    } else {
+      // embed_cli.py → embed-rs
+      if (model) pythonArgs.push('--model', model)
+    }
+    cwd = os.tmpdir()
+  } else if (isDev) {
     const codeTreeRoot = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
       ? (process.env.CAPTION_EDITOR_CODE_TREE_ROOT || path.join(__dirname, '..'))
       : path.join(__dirname, '..')

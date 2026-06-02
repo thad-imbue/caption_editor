@@ -107,6 +107,20 @@ Saved/exported `.captions_json5` from `exportToString()` includes leading `//` h
 **ASR Integration**
 - Dev mode: Uses `uv run python transcribe_cli.py`
 - Production: Uses bundled `uvx` to fetch from GitHub at specific commit
+- **Rust bypass (experimental):** Set both env vars to invoke the
+  //transcribe_rs/ binaries instead of Python uvx. Args are wire-compatible
+  (--chunk-size, --model, --remux-mp3 forwarded as-is) so this is a drop-in
+  swap; setting only one of the two also works (e.g. test transcribe-rs
+  while still embedding via Python).
+  ```bash
+  bazelisk build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs
+  export CAPTION_EDITOR_TRANSCRIBE_RS_BIN=$(pwd)/bazel-bin/transcribe_rs/transcribe-rs/transcribe-rs
+  export CAPTION_EDITOR_EMBED_RS_BIN=$(pwd)/bazel-bin/transcribe_rs/embed-rs/embed-rs
+  # Optional: point parakeet at our own ONNX export (in lieu of HF id):
+  #   set the model to the local path in the app UI, or default to
+  #   istupakov/parakeet-tdt-0.6b-v3-onnx (auto-fetched via hf-hub).
+  npm run dev:electron:watch
+  ```
 - Default model: `nvidia/parakeet-tdt-0.6b-v3`
 - Test override: Set `window.__ASR_MODEL_OVERRIDE = 'openai/whisper-tiny'`
 

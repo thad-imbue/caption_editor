@@ -84,3 +84,4 @@ bazel-caption_editor
 bazel-code
 .bazelrc.user
 out/
+*.tsbuildinfo
