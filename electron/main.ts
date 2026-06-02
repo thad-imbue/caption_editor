@@ -763,29 +763,58 @@ ipcMain.on('menu:updateAsrEnabled', (_event, options: boolean | { caption?: bool
 })
 
 /**
- * Resolve the paths of the //transcribe_rs/ Rust ASR binaries bundled
- * inside the .app at packaging time (see electron-builder.json's
- * `extraResources`). The binaries land at
- * `Contents/Resources/bin/{transcribe,embed}-rs` and are signed by
- * electron-builder with the same Developer ID + hardened runtime +
- * entitlements as the main app, so Gatekeeper accepts them.
+ * Locate the //transcribe_rs/ Rust ASR binaries. Tries, in order:
  *
- * Production-only: dev mode (NODE_ENV=development /
- * CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1) takes a different
- * branch upstream and never calls into this.
+ *   1. Env-var override (CAPTION_EDITOR_TRANSCRIBE_RS_BIN /
+ *      CAPTION_EDITOR_EMBED_RS_BIN). For local A/B testing of an
+ *      uncommitted build — when one or both are set, they win.
+ *   2. Inside-app bundle at `Contents/Resources/bin/`
+ *      (production .app — populated by electron-builder's
+ *      `extraResources` and signed alongside the main bundle).
+ *   3. Dev fallback at `<repo>/dist-rust/` (populated by
+ *      `npm run build:rust`, which is what `package:mac` runs
+ *      before electron-builder — so the same files exist in both
+ *      dev and prod, just under different paths).
+ *
+ * Throws with a clear message if none of those hit. Each callsite
+ * resolves once per runAsrTool invocation; the cost is two
+ * `existsSync` calls so we don't bother caching.
  */
-function bundledRustAsrPaths(): { transcribeRs: string; embedRs: string } {
-  const binDir = path.join(process.resourcesPath, 'bin')
-  const transcribeRs = path.join(binDir, 'transcribe-rs')
-  const embedRs = path.join(binDir, 'embed-rs')
-  if (!existsSync(transcribeRs) || !existsSync(embedRs)) {
-    throw new Error(
-      `Bundled Rust ASR binaries not found in ${binDir}. ` +
-      `The .app was packaged without them — re-run \`npm run package:mac\` ` +
-      `(which calls \`npm run build:rust\` before electron-builder).`,
-    )
+function resolveRustAsrPaths(): { transcribeRs: string; embedRs: string } {
+  const envTr = process.env.CAPTION_EDITOR_TRANSCRIBE_RS_BIN
+  const envEmb = process.env.CAPTION_EDITOR_EMBED_RS_BIN
+
+  const candidates = [
+    // (label, transcribeRs path, embedRs path)
+    ['bundled (Contents/Resources/bin)', path.join(process.resourcesPath, 'bin', 'transcribe-rs'), path.join(process.resourcesPath, 'bin', 'embed-rs')],
+    // __dirname under a packaged app is inside the .app; under dev
+    // it's `<repo>/dist-electron/`, so `../dist-rust/` lands in the
+    // repo's staging dir.
+    ['dev fallback (<repo>/dist-rust)', path.join(__dirname, '..', 'dist-rust', 'transcribe-rs'), path.join(__dirname, '..', 'dist-rust', 'embed-rs')],
+  ] as const
+
+  // Env-var override wins outright if set — it may point at a
+  // bazel-bin path, a custom build, or a downloaded artifact.
+  if (envTr && envEmb) {
+    if (!existsSync(envTr)) throw new Error(`CAPTION_EDITOR_TRANSCRIBE_RS_BIN=${envTr} does not exist`)
+    if (!existsSync(envEmb)) throw new Error(`CAPTION_EDITOR_EMBED_RS_BIN=${envEmb} does not exist`)
+    return { transcribeRs: envTr, embedRs: envEmb }
   }
-  return { transcribeRs, embedRs }
+  // Partial override — only one set: fill the other from the first
+  // hit in the fallback list.
+  for (const [, tr, emb] of candidates) {
+    const resolvedTr = envTr ?? (existsSync(tr) ? tr : null)
+    const resolvedEmb = envEmb ?? (existsSync(emb) ? emb : null)
+    if (resolvedTr && resolvedEmb) {
+      return { transcribeRs: resolvedTr, embedRs: resolvedEmb }
+    }
+  }
+
+  throw new Error(
+    `Could not locate the Rust ASR binaries. Tried:\n` +
+    candidates.map(([label, tr]) => `  - ${label}: ${tr}`).join('\n') +
+    `\nBuild them with \`npm run build:rust\` (or \`bazelisk build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs\`).`,
+  )
 }
 
 /**
@@ -843,60 +872,25 @@ async function runAsrTool(options: {
     }
   }
 
-  // Determine if we're in dev mode
-  const runFromCodeTree = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
-  const isDev = runFromCodeTree || process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL
-
   let pythonCommand: string
   let pythonArgs: string[]
   let cwd: string
 
-  // Rust ASR bypass. When CAPTION_EDITOR_TRANSCRIBE_RS_BIN or _EMBED_RS_BIN are
-  // set, invoke the //transcribe_rs/ Rust binary directly instead of uvx/Python.
-  // Args are wire-compatible with the Python CLI (we kept --model, --chunk-size,
-  // --remux-mp3 flag names identical so this swap is a drop-in). Setting just
-  // one of the two vars is fine — e.g. test transcribe-rs while still embedding
-  // via the Python pipeline.
-  const transcribeRsBin = process.env.CAPTION_EDITOR_TRANSCRIBE_RS_BIN
-  const embedRsBin = process.env.CAPTION_EDITOR_EMBED_RS_BIN
-  const useRust =
-    (script === 'transcribe_cli.py' && transcribeRsBin) ||
-    (script === 'embed_cli.py' && embedRsBin)
+  // Playwright E2E tests opt into the legacy Python ASR path by exporting
+  // CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1 (+ _CODE_TREE_ROOT).
+  // Everything else uses the Rust binaries — both dev (`npm run
+  // dev:electron:watch`) and the packaged .app go through the same
+  // resolveRustAsrPaths() call below; only the resolved file path
+  // differs. The Python branch stays until those tests are ported to
+  // use the Rust binaries (or deleted along with transcribe/).
+  const useLegacyPython = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
 
-  if (useRust) {
-    pythonCommand = (script === 'transcribe_cli.py' ? transcribeRsBin : embedRsBin)!
-    if (!existsSync(pythonCommand)) {
-      throw new Error(`Rust ASR binary not found at ${pythonCommand}`)
-    }
-    pythonArgs = [inputPath]
-    if (script === 'transcribe_cli.py') {
-      if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
-      if (model) pythonArgs.push('--model', model)
-      if (remuxMp3) pythonArgs.push('--remux-mp3')
-      // The Python --embed default is true, so the GUI's "transcribe" handler
-      // expects embeddings to be present afterward. transcribe-rs defaults
-      // to --embed too; it shells out to a sibling embed-rs binary. Help
-      // that resolution along by passing --embed-bin if we know it.
-      if (embedRsBin && existsSync(embedRsBin)) {
-        pythonArgs.push('--embed-bin', embedRsBin)
-      }
-    } else {
-      // embed_cli.py → embed-rs
-      if (model) pythonArgs.push('--model', model)
-    }
-    cwd = os.tmpdir()
-  } else if (isDev) {
-    const codeTreeRoot = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
-      ? (process.env.CAPTION_EDITOR_CODE_TREE_ROOT || path.join(__dirname, '..'))
-      : path.join(__dirname, '..')
-
+  if (useLegacyPython) {
+    const codeTreeRoot = process.env.CAPTION_EDITOR_CODE_TREE_ROOT || path.join(__dirname, '..')
     pythonCommand = 'uv'
     pythonArgs = ['run', 'python', script, inputPath]
     cwd = path.join(codeTreeRoot, 'transcribe')
-
-    if (script === 'transcribe_cli.py' && chunkSize !== undefined) {
-      pythonArgs.push('--chunk-size', chunkSize.toString())
-    }
+    if (script === 'transcribe_cli.py' && chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
     if (model) pythonArgs.push('--model', model)
     if (script === 'transcribe_cli.py' && remuxMp3) pythonArgs.push('--remux-mp3')
 
@@ -905,26 +899,19 @@ async function runAsrTool(options: {
       throw new Error(`${script} not found at ${scriptPath}`)
     }
   } else {
-    // Production mode: invoke the //transcribe_rs/ Rust binaries that
-    // electron-builder bundled inside Contents/Resources/bin/. They were
-    // signed alongside the .app (same Developer ID + hardened runtime
-    // + entitlements + stapled notarization ticket), so no extra signing
-    // step is needed.
-    const { transcribeRs, embedRs } = bundledRustAsrPaths()
+    const { transcribeRs, embedRs } = resolveRustAsrPaths()
     pythonCommand = (script === 'transcribe_cli.py' ? transcribeRs : embedRs)
     pythonArgs = [inputPath]
     if (script === 'transcribe_cli.py') {
       if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
       if (model) pythonArgs.push('--model', model)
       if (remuxMp3) pythonArgs.push('--remux-mp3')
-      // transcribe-rs auto-embeds via a sibling embed-rs binary; the
-      // download lands both binaries in the same dir so its
-      // auto-discovery (current_exe parent → embed-rs) already works,
-      // but passing --embed-bin makes it explicit and survives any
-      // future install layout changes.
+      // transcribe-rs auto-embeds via a sibling embed-rs binary; pass
+      // --embed-bin explicitly so the embed step uses the same one we
+      // resolved here (regardless of install layout).
       pythonArgs.push('--embed-bin', embedRs)
     } else {
-      // embed_cli.py → embed-rs
+      // embed-rs
       if (model) pythonArgs.push('--model', model)
     }
     cwd = os.tmpdir()
