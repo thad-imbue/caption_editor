@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test'
-import { getElectronMainPath, getProjectRoot } from '../helpers/project-root'
+import { getElectronMainPath } from '../helpers/project-root'
 
 test.describe('License Agreement Dialog', () => {
   test('should show license dialog on first run and persist acceptance', async () => {
@@ -7,10 +7,6 @@ test.describe('License Agreement Dialog', () => {
       ...process.env as Record<string, string>,
       NODE_ENV: 'test',
     }
-
-    const projectRoot = getProjectRoot()
-    env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE = '1'
-    env.CAPTION_EDITOR_CODE_TREE_ROOT = projectRoot
 
     if (process.env.DISPLAY) {
       env.DISPLAY = process.env.DISPLAY

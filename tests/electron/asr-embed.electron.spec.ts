@@ -11,9 +11,13 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 test.describe('Speaker Embedding Integration @expensive', () => {
-    // Expensive test - requires downloading ML models and running inference
-    // Skipped by default since it depends on local Python tooling (`uv`).
-    test.skip(process.env.RUN_PY_E2E !== 'true', 'Set RUN_PY_E2E=true to enable Python-dependent Electron E2E tests')
+    // Expensive test — downloads ML models on first run and exercises the
+    // full Rust ASR pipeline end-to-end. Skipped by default; opt in with
+    // RUN_E2E_ASR=true (or the legacy RUN_PY_E2E=true alias).
+    test.skip(
+        process.env.RUN_E2E_ASR !== 'true' && process.env.RUN_PY_E2E !== 'true',
+        'Set RUN_E2E_ASR=true to enable Electron ASR end-to-end tests',
+    )
     test('should compute speaker embeddings via menu item @expensive', async () => {
         test.setTimeout(180000) // 3 minute timeout for model download + inference
         // Create a temporary directory for test files
@@ -42,14 +46,11 @@ test.describe('Speaker Embedding Integration @expensive', () => {
             console.log('[Test] Copied audio file to:', destAudioPath)
             console.log('[Test] Created captions file at:', destCaptionsPath)
 
-            // 2. Set environment to trigger uvx path if in production
-            // But for tests usually we might want to run in dev mode or prod mode
-            // Let's stick to CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1 for faster local testing
-            // unless we specifically want to test the download.
+            // runAsrTool resolves the Rust binaries from <repo>/dist-rust/
+            // when no env-var override is set. `npm run test:e2e` runs
+            // `build:rust` first to populate that dir.
             const env = {
                 ...process.env,
-                CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE: '1',
-                CAPTION_EDITOR_CODE_TREE_ROOT: projectRoot,
                 DISPLAY: process.env.DISPLAY || ':99'
             }
 

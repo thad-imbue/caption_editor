@@ -34,10 +34,11 @@ test.describe('ASR Cancellation Reproduction', () => {
             fs.copyFileSync(sourceAudioPath, destAudioPath)
             console.log('[Test] Copied audio file to:', destAudioPath)
 
+            // runAsrTool resolves the Rust binaries from <repo>/dist-rust/
+            // when no env-var override is set.
             const env = {
                 ...process.env,
-                NODE_ENV: 'development',
-                CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE: '1'
+                NODE_ENV: 'test',
             }
 
             // Launch Electron app

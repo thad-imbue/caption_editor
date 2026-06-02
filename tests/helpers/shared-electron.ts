@@ -13,7 +13,7 @@
  */
 
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test'
-import { getElectronMainPath, getProjectRoot } from './project-root'
+import { getElectronMainPath } from './project-root'
 import { enableConsoleCapture } from './console'
 import { acceptLicenseIfVisible } from './license'
 
@@ -57,12 +57,12 @@ export const sharedElectronTest = base.extend<{
                 ...process.env as Record<string, string>,
                 NODE_ENV: 'test',
             }
-            
-            // Set up code tree for ASR if available
-            const projectRoot = getProjectRoot()
-            env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE = '1'
-            env.CAPTION_EDITOR_CODE_TREE_ROOT = projectRoot
-            
+
+            // ASR routing: runAsrTool in electron/main.ts resolves the Rust
+            // binaries from <repo>/dist-rust/ when no env-var override is
+            // set, so as long as `npm run build:rust` has run (test:e2e
+            // calls it), no extra env wiring is needed here.
+
             if (process.env.DISPLAY) {
                 env.DISPLAY = process.env.DISPLAY
             } else if (process.platform === 'linux') {

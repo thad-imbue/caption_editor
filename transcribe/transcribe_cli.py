@@ -1,5 +1,22 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — superseded by //transcribe_rs/transcribe-rs/ (the Rust port).
+
+The Electron app no longer invokes this script in production or in dev mode;
+it runs the bundled Rust binary in both cases (see electron/main.ts
+`resolveRustAsrPaths`). This file is kept only because a few Playwright E2E
+tests in tests/electron/ still opt into the legacy Python path with
+`CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1`, and as a reference
+implementation while the Rust port stabilises.
+
+Quality / parity status (as of this writing): the Rust pipeline matches
+this Python one at ~96% word-level agreement across the corpus, with the
+cleaner data model and a stricter `" ".join(words) == segment.text`
+invariant. See transcribe_rs/SPIKE_NOTES.md for the deep-dive comparison
+and known parity gaps.
+
+Original docstring follows.
+
 Media transcription tool using NVIDIA Parakeet TDT model.
 Converts media files to the caption editor native `.captions_json5` format with segment-level transcription.
 
