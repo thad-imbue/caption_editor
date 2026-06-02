@@ -12,8 +12,15 @@
 
 **IMPORTANT: When changing Node.js/TypeScript code, bump the Electron app version!**
 
-1. **`APP_VERSION`** — In `electron/constants.ts`. Single source of truth for the app version.
-2. **`ASR_COMMIT_HASH`** — Same string in `electron/constants.ts` and `transcribe/constants.py`. This is the revision **Electron passes to `uvx`** (must be on GitHub with a working `transcribe/` package). It is also baked into `.captions_json5` header blob URLs when the app or CLI serializes a file.
+1. **`APP_VERSION`** — Declared in three files that MUST stay in lockstep
+   (enforced by `//tools/bazel:version_consistency_test`):
+   - `electron/constants.ts`: `export const APP_VERSION = '1.6.1'`
+   - `transcribe_rs/version.bzl`: `APP_VERSION = "1.6.1"` (used by BUILD.bazel files to stamp `CARGO_PKG_VERSION` so the Rust binaries' `--version` flag matches)
+   - `transcribe_rs/Cargo.toml`: `workspace.package.version = "1.6.1"` (used when building via `cargo` outside Bazel)
+
+   The GitHub Release workflow attaches the Rust binaries as `transcribe-rs-v${APP_VERSION}-darwin-arm64` and `embed-rs-v${APP_VERSION}-darwin-arm64`. The Electron app downloads by version tag.
+
+2. **`ASR_COMMIT_HASH`** — *Deprecated, used during the Python→Rust migration.* Same string in `electron/constants.ts` and `transcribe/constants.py`. This is the revision **Electron passes to `uvx`** (must be on GitHub with a working `transcribe/` package). It is also baked into `.captions_json5` header blob URLs when the app or CLI serializes a file.
 
 **Why the pin can’t match “this” commit’s tree:** A git commit id is the hash of that commit’s tree. The tree cannot truthfully contain its own commit id as file text (changing the text would change the tree and thus the id). So the usual release is **two commits**: commit **A** bumps `APP_VERSION`; commit **B** sets `ASR_COMMIT_HASH` to **A**’s hash in both files. The tarball **at A** still has the *previous* `ASR_COMMIT_HASH` inside `transcribe/constants.py` — that does **not** break production: uvx uses the rev from **Electron**, not from Python’s constant. For local `uv run transcribe_cli` with headers matching the pin, work from `main` **after B** (or accept one-commit lag on a checkout exactly at **A**).
 

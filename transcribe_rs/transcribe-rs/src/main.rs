@@ -44,7 +44,10 @@ const ASR_COMMIT_HASH: &str = "2986a2e3330c839ec45cb12a5c00f0dc24476ac5";
 #[command(
     about = "Transcribe a media file into a .captions_json5 document.",
     long_about = "Rust port of transcribe/transcribe_cli.py. parakeet-tdt-0.6b-v3 via parakeet-rs,\n\
-                  chunked 60s + 5s overlap, same post-processing pipeline as the Python suite."
+                  chunked 60s + 5s overlap, same post-processing pipeline as the Python suite.",
+    // `--version` / `-V` print the Cargo.toml workspace version, which is
+    // kept in lockstep with electron/constants.ts APP_VERSION.
+    version = env!("CARGO_PKG_VERSION"),
 )]
 struct Args {
     /// Input media file (any container ffmpeg can decode).

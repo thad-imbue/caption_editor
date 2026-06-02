@@ -20,6 +20,10 @@ exports_files(
 # Management"; this test makes drift loud at `bazel test //...` time
 # rather than weeks later when someone notices `.captions_json5` blob
 # URLs pointing at a different commit than what `uvx` actually fetched.
+#
+# DEPRECATION: ASR_COMMIT_HASH is being replaced by APP_VERSION (see
+# `version_consistency_test` below). This test stays as long as
+# transcribe/ Python still exists; deletes when Python is removed.
 sh_test(
     name = "asr_commit_hash_consistency_test",
     size = "small",
@@ -27,6 +31,24 @@ sh_test(
     data = [
         "//:electron/constants.ts",
         "//transcribe:constants.py",
+    ],
+    deps = [":runfiles"],
+)
+
+# Asserts APP_VERSION matches across electron/constants.ts,
+# transcribe_rs/version.bzl, and transcribe_rs/Cargo.toml. These three
+# must stay in lockstep: the Electron app downloads
+# `transcribe-rs-v${APP_VERSION}-darwin-arm64` from the GitHub Release,
+# the Rust binaries stamp `--version` from version.bzl via CARGO_PKG_VERSION,
+# and Cargo.toml is the cargo-side version for `cargo build` outside Bazel.
+sh_test(
+    name = "version_consistency_test",
+    size = "small",
+    srcs = ["check_version_consistency.sh"],
+    data = [
+        "//:electron/constants.ts",
+        "//transcribe_rs:Cargo.toml",
+        "//transcribe_rs:version.bzl",
     ],
     deps = [":runfiles"],
 )

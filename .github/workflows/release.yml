@@ -109,6 +109,56 @@ jobs:
           fi
           echo "OK: tag v$TAG matches APP_VERSION=$APP_VERSION"
 
+      # Bazel cache. Without this every release cold-builds ort + parakeet-rs
+      # + knf-rs-sys (cmake/bindgen for kaldi-native-fbank C++), which is
+      # ~10 minutes on a fresh runner. The key includes hashes of the
+      # things that actually invalidate the cache: Cargo.lock pins
+      # workspace + crate-universe versions, version.bzl is the only
+      # Bazel-side input that intentionally bumps with each release.
+      - name: Cache Bazel
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/bazelisk
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: ${{ runner.os }}-bazel-${{ hashFiles('MODULE.bazel.lock', 'transcribe_rs/Cargo.lock', 'transcribe_rs/version.bzl') }}
+          restore-keys: |
+            ${{ runner.os }}-bazel-
+
+      # Build the two Rust ASR binaries we ship in the Release.
+      # Bazelisk picks the version pinned in `.bazeliskrc` / `.bazelversion`
+      # if present; otherwise it grabs the latest. Both binaries are
+      # universal2-ready (rustc target = aarch64-apple-darwin) — we only
+      # ship darwin-arm64 for now.
+      - name: Install Bazelisk
+        run: brew install bazelisk
+      - name: Build Rust ASR binaries
+        run: |
+          bazelisk build --config=release //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs \
+            || bazelisk build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs
+
+          APP_VERSION=$(node -p "require('fs').readFileSync('electron/constants.ts','utf8').match(/APP_VERSION = '(.+)'/)[1]")
+          mkdir -p release-rust
+          # Match the Bazel-built binary's reported `--version` against
+          # APP_VERSION as a defense in depth on top of
+          # //tools/bazel:version_consistency_test (which CI may run
+          # separately, but we want this workflow self-contained).
+          for bin in transcribe-rs embed-rs; do
+            src="bazel-bin/transcribe_rs/${bin}/${bin}"
+            out="release-rust/${bin}-v${APP_VERSION}-darwin-arm64"
+            bin_version=$("$src" --version | awk '{print $2}')
+            if [[ "$bin_version" != "$APP_VERSION" ]]; then
+              echo "::error::${bin} reports --version=$bin_version, expected $APP_VERSION"
+              exit 1
+            fi
+            cp "$src" "$out"
+            chmod +x "$out"
+          done
+          ls -lh release-rust/
+          # Stash for later steps.
+          echo "rust_asr_dir=release-rust" >> "$GITHUB_ENV"
+
       # `npm run package:mac` runs `vue-tsc → vite build → vite build
       # --config vite.electron.config.ts → electron-builder --mac`
       # with the APP_VERSION literal pulled from electron/constants.ts.
@@ -190,15 +240,25 @@ jobs:
           path: release/*.dmg
           retention-days: 7
 
+      - name: Upload Rust ASR binaries as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caption-editor-rust-asr-darwin-arm64
+          path: release-rust/*
+          retention-days: 7
+
       # Publish to the GitHub Release page only on tag pushes.
       # `softprops/action-gh-release@v2` creates the release if it
-      # doesn't exist yet and attaches the DMG. The release body is
-      # intentionally minimal — fill in changelog by hand if needed.
-      - name: Attach DMG to GitHub Release
+      # doesn't exist yet and attaches the DMG + Rust binaries. The
+      # release body is intentionally minimal — fill in changelog by
+      # hand if needed.
+      - name: Attach DMG + Rust binaries to GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.dmg_path }}
+          files: |
+            ${{ env.dmg_path }}
+            release-rust/*
           # The action infers tag_name from GITHUB_REF on tag pushes,
           # so leaving it implicit keeps the workflow tag-agnostic.
           generate_release_notes: true

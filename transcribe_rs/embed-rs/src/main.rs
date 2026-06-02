@@ -46,7 +46,8 @@ const ASR_COMMIT_HASH: &str = "2986a2e3330c839ec45cb12a5c00f0dc24476ac5";
 #[command(
     about = "Compute speaker embeddings for a .captions_json5 file.",
     long_about = "Rust port of transcribe/embed_cli.py. Same wespeaker model, same on-disk \
-                  HF cache, same .captions_json5 wire format."
+                  HF cache, same .captions_json5 wire format.",
+    version = env!("CARGO_PKG_VERSION"),
 )]
 struct Args {
     /// Path to the .captions_json5 file. Edited in place.

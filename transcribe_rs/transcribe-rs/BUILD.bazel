@@ -1,5 +1,6 @@
 load("@crates//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("//transcribe_rs:version.bzl", "APP_VERSION")
 
 exports_files(
     ["Cargo.toml"],
@@ -11,6 +12,12 @@ rust_binary(
     srcs = glob(["src/**/*.rs"]),
     aliases = aliases(),
     edition = "2021",
+    # Stamp APP_VERSION as `CARGO_PKG_VERSION` so clap's `--version` flag
+    # reports the same release-tag string the GitHub Release uses. Bazel
+    # doesn't go through cargo so rules_rust defaults this to "0.0.0";
+    # set it explicitly here. Single source: //transcribe_rs:version.bzl.
+    rustc_env = {"CARGO_PKG_VERSION": APP_VERSION},
+    version = APP_VERSION,
     proc_macro_deps = all_crate_deps(proc_macro = True),
     deps = all_crate_deps(normal = True) + [
         "//transcribe_rs/caption-schema:caption_schema",

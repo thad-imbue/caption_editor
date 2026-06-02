@@ -10,10 +10,12 @@ members = [
 [workspace.package]
 edition = "2021"
 license = "MIT"
-version = "0.0.1"
-# Mirror the project version so any binary `--version` flag matches the
-# Electron app and the .captions_json5 schema_version we emit. Bumped
-# alongside APP_VERSION (see ../CLAUDE.md Version Management).
+# Kept in lockstep with electron/constants.ts `APP_VERSION` and enforced
+# by //tools/bazel:version_consistency_test. The release workflow builds
+# these crates and attaches `{transcribe,embed}-rs-v${APP_VERSION}-darwin-arm64`
+# to the GitHub release; the Electron app downloads by version tag.
+# Bump procedure: see ../CLAUDE.md → "Version Management".
+version = "1.6.1"
 publish = false
 
 [workspace.dependencies]
