@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from '
 import { fileURLToPath, pathToFileURL } from 'url'
 import { type ChildProcess } from 'child_process'
 import * as os from 'os'
-import { APP_VERSION, ASR_GITHUB_REPO } from './constants'
+import { APP_VERSION } from './constants'
 import { findBackupPath } from '../src/utils/fileUtils'
 
 
@@ -763,89 +763,29 @@ ipcMain.on('menu:updateAsrEnabled', (_event, options: boolean | { caption?: bool
 })
 
 /**
- * Ensures the Rust ASR binaries (transcribe-rs, embed-rs) for the current
- * APP_VERSION are present in ~/.cache/caption_editor/bin/rust-asr-v${APP_VERSION}/.
+ * Resolve the paths of the //transcribe_rs/ Rust ASR binaries bundled
+ * inside the .app at packaging time (see electron-builder.json's
+ * `extraResources`). The binaries land at
+ * `Contents/Resources/bin/{transcribe,embed}-rs` and are signed by
+ * electron-builder with the same Developer ID + hardened runtime +
+ * entitlements as the main app, so Gatekeeper accepts them.
  *
- * Downloads them from the matching GitHub Release on first use:
- *   https://github.com/<repo>/releases/download/v${APP_VERSION}/<name>-v${APP_VERSION}-darwin-arm64
- *
- * Cache key is the version directory itself — so an APP_VERSION bump
- * invalidates the cache automatically and forces a re-download, while
- * downgrading to a previous version keeps that version's binaries
- * around for offline use.
+ * Production-only: dev mode (NODE_ENV=development /
+ * CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1) takes a different
+ * branch upstream and never calls into this.
  */
-async function ensureRustAsrBinaries(onLog?: (msg: string) => void): Promise<{
-  transcribeRs: string
-  embedRs: string
-}> {
-  const cacheDir = path.join(os.homedir(), '.cache', 'caption_editor')
-  const versionDir = path.join(cacheDir, 'bin', `rust-asr-v${APP_VERSION}`)
-  if (!existsSync(versionDir)) {
-    mkdirSync(versionDir, { recursive: true })
-  }
-
-  const transcribeRsPath = path.join(versionDir, 'transcribe-rs')
-  const embedRsPath = path.join(versionDir, 'embed-rs')
-
-  if (existsSync(transcribeRsPath) && existsSync(embedRsPath)) {
-    return { transcribeRs: transcribeRsPath, embedRs: embedRsPath }
-  }
-
-  const log = (msg: string) => {
-    console.log(`[main] ${msg}`)
-    if (onLog) onLog(msg + '\n')
-  }
-
-  if (process.arch !== 'arm64' || process.platform !== 'darwin') {
+function bundledRustAsrPaths(): { transcribeRs: string; embedRs: string } {
+  const binDir = path.join(process.resourcesPath, 'bin')
+  const transcribeRs = path.join(binDir, 'transcribe-rs')
+  const embedRs = path.join(binDir, 'embed-rs')
+  if (!existsSync(transcribeRs) || !existsSync(embedRs)) {
     throw new Error(
-      `Rust ASR binaries are only published for darwin-arm64 (current: ${process.platform}-${process.arch}). ` +
-      `Build locally with bazelisk and point CAPTION_EDITOR_TRANSCRIBE_RS_BIN at the binary.`
+      `Bundled Rust ASR binaries not found in ${binDir}. ` +
+      `The .app was packaged without them — re-run \`npm run package:mac\` ` +
+      `(which calls \`npm run build:rust\` before electron-builder).`,
     )
   }
-
-  // The repo's GitHub Release page hosts assets at predictable URLs. Strip
-  // the `git+`/`.git` prefixes from ASR_GITHUB_REPO that exist for the uvx
-  // pip-spec format; the bare https://github.com/<owner>/<repo> form is
-  // what `releases/download/...` paths are built from.
-  const httpRepo = ASR_GITHUB_REPO
-    .replace(/^git\+/, '')
-    .replace(/\.git$/, '')
-  const tag = `v${APP_VERSION}`
-  const suffix = `-${tag}-darwin-arm64`
-
-  log(`Rust ASR binaries missing for ${tag}. Downloading from GitHub Release...`)
-
-  const downloadOne = async (name: 'transcribe-rs' | 'embed-rs', destPath: string) => {
-    const assetName = `${name}${suffix}`
-    const url = `${httpRepo}/releases/download/${tag}/${assetName}`
-    log(`  ${name}: ${url}`)
-    const response = await net.fetch(url, { redirect: 'follow' })
-    if (!response.ok) {
-      throw new Error(
-        `Failed to download ${assetName} from ${url}: HTTP ${response.status} ${response.statusText}. ` +
-        `Has the v${APP_VERSION} release been published with the Rust binaries attached?`
-      )
-    }
-    const buf = Buffer.from(await response.arrayBuffer())
-    await fs.writeFile(destPath, buf)
-    await fs.chmod(destPath, 0o755)
-  }
-
-  try {
-    await downloadOne('transcribe-rs', transcribeRsPath)
-    await downloadOne('embed-rs', embedRsPath)
-    log(`Rust ASR binaries installed in ${versionDir}`)
-    return { transcribeRs: transcribeRsPath, embedRs: embedRsPath }
-  } catch (err) {
-    // Don't leave half-downloaded binaries that would short-circuit the
-    // existsSync check on the next call.
-    for (const p of [transcribeRsPath, embedRsPath]) {
-      if (existsSync(p)) {
-        try { await fs.unlink(p) } catch { /* ignore */ }
-      }
-    }
-    throw err
-  }
+  return { transcribeRs, embedRs }
 }
 
 /**
@@ -965,14 +905,12 @@ async function runAsrTool(options: {
       throw new Error(`${script} not found at ${scriptPath}`)
     }
   } else {
-    // Production mode: download the Rust ASR binaries for the current
-    // APP_VERSION from the GitHub Release and invoke them directly.
-    // First call pays the network cost (~80 MB across both binaries),
-    // subsequent calls hit the on-disk cache in
-    // ~/.cache/caption_editor/bin/rust-asr-v${APP_VERSION}/.
-    const { transcribeRs, embedRs } = await ensureRustAsrBinaries((msg) =>
-      sendOutput('stdout', msg),
-    )
+    // Production mode: invoke the //transcribe_rs/ Rust binaries that
+    // electron-builder bundled inside Contents/Resources/bin/. They were
+    // signed alongside the .app (same Developer ID + hardened runtime
+    // + entitlements + stapled notarization ticket), so no extra signing
+    // step is needed.
+    const { transcribeRs, embedRs } = bundledRustAsrPaths()
     pythonCommand = (script === 'transcribe_cli.py' ? transcribeRs : embedRs)
     pythonArgs = [inputPath]
     if (script === 'transcribe_cli.py') {

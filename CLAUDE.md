@@ -113,7 +113,13 @@ Saved/exported `.captions_json5` from `exportToString()` includes leading `//` h
 
 **ASR Integration**
 - Dev mode: Uses `uv run python transcribe_cli.py`
-- Production: Uses bundled `uvx` to fetch from GitHub at specific commit
+- Production: The signed/notarized .app bundles the
+  //transcribe_rs/transcribe-rs and //transcribe_rs/embed-rs Rust
+  binaries inside `Contents/Resources/bin/`. `npm run build:rust`
+  stages them under `dist-rust/`; electron-builder's `extraResources`
+  copies them into the .app, and the existing codesign+notarize+staple
+  flow signs them along with the rest of the Mach-O files in the
+  bundle. At runtime `main.ts` resolves them via `process.resourcesPath`.
 - **Rust bypass (experimental):** Set both env vars to invoke the
   //transcribe_rs/ binaries instead of Python uvx. Args are wire-compatible
   (--chunk-size, --model, --remux-mp3 forwarded as-is) so this is a drop-in

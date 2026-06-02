@@ -14,6 +14,10 @@
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
   },
+  "extraResources": [
+    { "from": "dist-rust/transcribe-rs", "to": "bin/transcribe-rs" },
+    { "from": "dist-rust/embed-rs", "to": "bin/embed-rs" }
+  ],
   "fileAssociations": [
     {
       "ext": "srt",

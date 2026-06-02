@@ -217,29 +217,8 @@ transcribe_pytest(
     tags = _HEAVY_TAGS + ["requires-network", "manual"],
 )
 
-# Integration test for the released Rust ASR binaries. Downloads
-# transcribe-rs-v${APP_VERSION}-darwin-arm64 + embed-rs-v${APP_VERSION}-darwin-arm64
-# from https://github.com/<repo>/releases/download/v${APP_VERSION}/ and
-# runs them end-to-end. APP_VERSION is read from electron/constants.ts
-# at test time (the same source the GHA workflow uses to name the
-# uploaded artifacts), so a checkout at v1.6.1 exercises the v1.6.1
-# release.
-#
-# Skips automatically if (a) the host isn't darwin-arm64, or (b) the
-# release artifact returns 404 (release for this version not published
-# yet — useful when developing the release flow itself).
-#
-# Tagged `manual` so default `bazel test //...` skips it; `requires-network`
-# documents the dependency. Trigger:
-#
-#   bazel test //transcribe:released_rust_asr_test --test_output=streamed
-transcribe_pytest(
-    name = "released_rust_asr_test",
-    test_file = "released_rust_asr_test.py",
-    # The test reads electron/constants.ts to figure out which release
-    # tag to download from. Pull it into runfiles via the existing
-    # exports_files declaration at //:BUILD.bazel.
-    data = _HEAVY_TEST_DATA + ["//:electron/constants.ts"],
-    deps = _CHEAP_TEST_DEPS,
-    tags = _HEAVY_TAGS + ["requires-network", "manual"],
-)
+# (released_rust_asr_test removed: the Rust binaries no longer ship as
+# separate Release artifacts. They're bundled inside the signed/notarized
+# .app via electron-builder.json's `extraResources`, so the "is the
+# released binary usable" question is now equivalent to "does the .dmg
+# install + launch cleanly".)

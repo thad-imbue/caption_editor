@@ -85,3 +85,7 @@ bazel-code
 .bazelrc.user
 out/
 *.tsbuildinfo
+
+# Staging dir for the //transcribe_rs/ binaries that electron-builder
+# bundles into Contents/Resources/bin/. Populated by `npm run build:rust`.
+dist-rust/
