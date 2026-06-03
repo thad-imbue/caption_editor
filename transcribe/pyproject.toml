@@ -48,6 +48,8 @@ bulk_cli = "bulk_cli:app"
 
 [dependency-groups]
 dev = [
+    "onnxruntime>=1.26.0",
+    "onnxscript>=0.7.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
 ]

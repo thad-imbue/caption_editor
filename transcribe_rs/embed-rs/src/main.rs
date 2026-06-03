@@ -85,7 +85,8 @@ fn main() -> Result<()> {
     let wav_path = ensure_wav(&media_path, &temp_dir)?;
 
     eprintln!("Loading embedding model: {}", args.model);
-    let model_onnx = download_wespeaker_onnx(&args.model)?;
+    let model_onnx = resolve_wespeaker_onnx(&args.model)?;
+    eprintln!("  ONNX path: {}", model_onnx.display());
     let mut session = create_session(&model_onnx)?;
 
     eprintln!("Computing embeddings...");
@@ -221,19 +222,14 @@ fn normalize_path(p: &Path) -> PathBuf {
     out
 }
 
-/// If `media` is already a WAV, return it unchanged. Otherwise run `ffmpeg`
-/// to re-encode to a 16-kHz mono WAV under `temp_dir`. Matches Python's
+/// Re-encode `media` to 16-kHz mono pcm_s16le WAV under `temp_dir`. If the
+/// input is already a WAV at the right rate/channels we still re-run
+/// ffmpeg — it's cheap, and the alternative (trusting the extension and
+/// reading sample-rate from the header) silently breaks on inputs like
+/// 8 kHz phone-quality WAVs (wespeaker needs 16 kHz). Matches Python's
 /// `audio_utils.extract_audio_to_wav`.
 fn ensure_wav(media: &Path, temp_dir: &tempfile::TempDir) -> Result<PathBuf> {
-    let lower = media
-        .extension()
-        .and_then(|s| s.to_str())
-        .map(str::to_ascii_lowercase);
-    if matches!(lower.as_deref(), Some("wav") | Some("wave")) {
-        return Ok(media.to_path_buf());
-    }
-
-    eprintln!("Converting {} to WAV format...", media.display());
+    eprintln!("Converting {} to 16 kHz mono WAV via ffmpeg...", media.display());
     let out_path = temp_dir.path().join("audio.wav");
     let status = Command::new("ffmpeg")
         .args([
@@ -300,10 +296,42 @@ fn slice_samples(samples: &[i16], sample_rate: u32, start_s: f64, end_s: f64) ->
 // Model download (matches HF Python cache layout)
 // ---------------------------------------------------------------------------
 
-/// Download the wespeaker ONNX model to the same HF cache directory the
-/// Python CLI uses (`~/.cache/huggingface/hub/models--<owner>--<name>/...`).
-/// We pull a single `*.onnx` file and look it up in the snapshot.
-fn download_wespeaker_onnx(model_id: &str) -> Result<PathBuf> {
+/// Resolve a `--model` argument to a concrete ONNX file path.
+///
+/// Accepts (in order):
+///   - a path to a `.onnx` file → used directly
+///   - a path to a directory containing `model.onnx` → that file
+///   - `pyannote/wespeaker-voxceleb-resnet34-LM` (default id): walks a
+///     few well-known on-disk candidates (sibling of the binary, repo
+///     `out/` dir) so the bundled .app and `dist-rust/` dev layout both
+///     just work without env vars. Upstream's pyannote HF repo only
+///     ships PyTorch weights — we build our own ONNX via
+///     `scripts/export_wespeaker_onnx.py` and ship it next to the binary.
+///   - anything else (HF repo id) → try `hf-hub` download of `model.onnx`
+fn resolve_wespeaker_onnx(model_id: &str) -> Result<PathBuf> {
+    // 1. Direct file path.
+    let p = PathBuf::from(model_id);
+    if p.is_file() {
+        return Ok(p);
+    }
+    // 2. Directory containing model.onnx.
+    if p.is_dir() {
+        let candidate = p.join("model.onnx");
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    // 3. For the default pyannote id, look in sibling dirs of the binary
+    //    (matches the layouts staged by `npm run build:rust` and by
+    //    electron-builder's `extraResources`).
+    if model_id == "pyannote/wespeaker-voxceleb-resnet34-LM" {
+        if let Some(p) = find_bundled_wespeaker_onnx() {
+            return Ok(p);
+        }
+    }
+    // 4. Try hf-hub. This works for repos that actually publish a
+    //    `model.onnx` (the upstream pyannote repo does not — we keep this
+    //    path for any future our-own re-host).
     let token = std::env::var("HF_TOKEN").ok();
     let mut builder = ApiBuilder::new();
     if let Some(t) = token {
@@ -313,20 +341,49 @@ fn download_wespeaker_onnx(model_id: &str) -> Result<PathBuf> {
         .build()
         .map_err(|e| eyre!("hf-hub init: {e}"))?
         .model(model_id.to_string());
-
-    // pyannote/wespeaker-voxceleb-resnet34-LM publishes the ONNX as
-    // `pytorch_model.bin`-style files; the actual ONNX export commonly
-    // lives under `*.onnx`. Try a couple of common names — falling
-    // back keeps this robust to repo-side renames.
-    for candidate in ["pytorch_model.onnx", "model.onnx", "wespeaker.onnx"] {
-        if let Ok(p) = api.get(candidate) {
-            return Ok(p);
-        }
+    if let Ok(p) = api.get("model.onnx") {
+        return Ok(p);
     }
     Err(eyre!(
-        "no ONNX file found in {model_id} (looked for pytorch_model.onnx / model.onnx / wespeaker.onnx). \
-         Pre-download the model with the Python embed_cli once, or provide the path directly."
+        "could not resolve wespeaker ONNX from {model_id:?}. Run \
+         `cd transcribe && uv run python ../scripts/export_wespeaker_onnx.py` \
+         to build it, or pass a path to model.onnx via `--model <path>`."
     ))
+}
+
+/// Walk a few candidate locations relative to the current executable for
+/// `wespeaker-onnx/model.onnx`. Matches the layouts produced by
+/// `npm run build:rust` (dist-rust/) and electron-builder
+/// (Contents/Resources/).
+fn find_bundled_wespeaker_onnx() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
+    let names = ["wespeaker-onnx", "wespeaker-voxceleb-resnet34-LM-onnx"];
+
+    // Candidate parent dirs (existence-checked at the join, not here):
+    //   exe_dir                    → dist-rust/wespeaker-onnx/model.onnx
+    //                                (bin and model both in dist-rust/)
+    //                                + Bazel runfiles
+    //   exe_dir/..                 → Resources/bin/embed-rs ⇒
+    //                                Resources/wespeaker-onnx/model.onnx
+    //   exe_dir/../out             → cargo target/release/embed-rs ⇒
+    //                                target/release/../out/... (rare,
+    //                                but cheap to check)
+    let mut parents: Vec<PathBuf> = vec![exe_dir.to_path_buf()];
+    if let Some(up) = exe_dir.parent() {
+        parents.push(up.to_path_buf());
+        parents.push(up.join("out"));
+    }
+
+    for parent in &parents {
+        for n in &names {
+            let candidate = parent.join(n).join("model.onnx");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
