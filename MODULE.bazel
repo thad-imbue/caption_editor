@@ -157,4 +157,18 @@ crate.from_cargo(
     # `members` from there to discover per-crate manifests.
     manifests = ["//transcribe_rs:Cargo.toml"],
 )
+
+# whisper-rs-sys vendors whisper.cpp, which uses C++17 `std::filesystem`
+# (`exists`, `directory_iterator`, etc.). Those APIs are gated on
+# macOS 10.15+. Cargo on the host inherits MACOSX_DEPLOYMENT_TARGET from
+# the user env (homebrew clang sets it to 11.0 by default); Bazel's
+# sandbox doesn't, so without this annotation the cmake build fails
+# with "'exists' is unavailable: introduced in macOS 10.15".
+crate.annotation(
+    crate = "whisper-rs-sys",
+    build_script_env = {
+        "MACOSX_DEPLOYMENT_TARGET": "11.0",
+    },
+)
+
 use_repo(crate, "crates")

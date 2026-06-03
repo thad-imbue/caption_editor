@@ -35,6 +35,11 @@ hf-hub = { version = "0.4", default-features = false, features = ["ureq", "rustl
 ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "api-24"] }
 knf-rs = "0.3"
 parakeet-rs = { version = "0.3", default-features = false, features = ["cpu", "ort-defaults"] }
+# whisper-rs wraps whisper.cpp; build chain is cmake + bindgen + C++17,
+# the same shape as knf-rs-sys we already build under rules_rust.
+# Default features link whisper.cpp's bundled GGML implementation; we
+# don't enable coreml/metal here to keep the build simple.
+whisper-rs = { version = "0.14", default-features = false, features = [] }
 insta = { version = "1", features = ["json", "yaml"] }
 umap-rs = "0.4"
 rand = "0.9"

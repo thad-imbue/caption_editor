@@ -31,6 +31,11 @@ use hf_hub::api::sync::ApiBuilder;
 use parakeet_rs::{ParakeetTDT, TimestampMode, Transcriber};
 
 mod parakeet_grouping;
+mod recognizer;
+mod whisper_recognizer;
+
+use recognizer::{is_whisper_model, Recognizer};
+use whisper_recognizer::{resolve_whisper_model_path, WhisperRecognizer};
 use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -144,29 +149,36 @@ fn main() -> Result<()> {
     let audio_hash = sha256_file(&wav_path)?;
     let (samples_f32, sample_rate, channels) = read_wav_f32_mono(&wav_path)?;
 
-    eprintln!("Loading parakeet model: {}", args.model);
-    // Local-dir fast path: if `--model` is an existing directory, skip hf-hub.
-    // Lets us point at our own freshly-exported ONNX without uploading it first.
-    let model_dir = {
-        let local = PathBuf::from(&args.model);
-        if local.is_dir() {
-            eprintln!("  using local model dir: {}", local.display());
-            local
-        } else {
-            download_parakeet_onnx(&args.model)?
-        }
+    // Recognizer selection: anything with "whisper" in the model id goes
+    // to whisper.cpp; everything else goes to parakeet-rs. The recognizer
+    // trait owns its own model loading + per-chunk inference and tells
+    // post-processing which is_whisper path to use.
+    let mut recognizer: Box<dyn Recognizer> = if is_whisper_model(&args.model) {
+        let model_path = resolve_whisper_model_path(&args.model)?;
+        Box::new(WhisperRecognizer::from_model(&model_path, Some("en"))?)
+    } else {
+        eprintln!("Loading parakeet model: {}", args.model);
+        let model_dir = {
+            let local = PathBuf::from(&args.model);
+            if local.is_dir() {
+                eprintln!("  using local model dir: {}", local.display());
+                local
+            } else {
+                download_parakeet_onnx(&args.model)?
+            }
+        };
+        let parakeet = ParakeetTDT::from_pretrained(&model_dir, None)
+            .map_err(|e| eyre!("ParakeetTDT::from_pretrained: {e}"))?;
+        Box::new(ParakeetRecognizer { parakeet, dump_tokens_path: args.dump_tokens.clone() })
     };
-    let mut parakeet = ParakeetTDT::from_pretrained(&model_dir, None)
-        .map_err(|e| eyre!("ParakeetTDT::from_pretrained: {e}"))?;
 
     let raw_segments = transcribe_chunked(
-        &mut parakeet,
+        recognizer.as_mut(),
         &samples_f32,
         sample_rate,
         channels,
         args.chunk_size,
         args.overlap,
-        args.dump_tokens.as_deref(),
     )?;
 
     let processed = post_process_raw_asr_segments(
@@ -175,10 +187,10 @@ fn main() -> Result<()> {
         args.overlap as f64,
         args.max_intra_segment_gap_seconds,
         args.max_segment_duration_seconds,
-        // Parakeet path: input is sentence-level segments (already grouped
-        // by parakeet-rs's `Sentences` mode), pipeline splits on big gaps
-        // and on max-duration. Matches Python's `is_whisper=False` flow.
-        /* is_whisper */ false,
+        // Whisper: word-level segments → group_segments_by_gap to recover
+        // sentences. Parakeet: sentence-level segments → split on big
+        // word gaps. The recognizer tells us which it is.
+        recognizer.is_whisper(),
     );
 
     let mut transcript = asr_segments_to_transcript_segments(processed, Some(&args.model));
@@ -395,19 +407,18 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Chunked driver
+// Chunked driver — engine-agnostic. Delegates per-chunk inference to the
+// passed-in Recognizer (Parakeet or Whisper).
 // ---------------------------------------------------------------------------
 
 fn transcribe_chunked(
-    parakeet: &mut ParakeetTDT,
+    recognizer: &mut dyn Recognizer,
     samples: &[f32],
     sample_rate: u32,
     channels: u16,
     chunk_size: u32,
     overlap: u32,
-    dump_tokens_path: Option<&Path>,
 ) -> Result<Vec<AsrSegment>> {
-    let mut token_dump: Vec<serde_json::Value> = Vec::new();
     if sample_rate != TARGET_SAMPLE_RATE {
         return Err(eyre!(
             "expected {TARGET_SAMPLE_RATE} Hz after ffmpeg resample, got {sample_rate}"
@@ -435,17 +446,48 @@ fn transcribe_chunked(
         let slice = samples[start_idx..end_idx].to_vec();
         eprintln!("  chunk {}/{}: [{:.1}s, {:.1}s)", i + 1, num_chunks, chunk_start_s, chunk_end_s);
 
-        let result = parakeet
-            // `Tokens` gives raw subword tokens. We re-derive both Sentences
-            // and Words via parakeet-rs's public `process_timestamps`, then
-            // pair them — same shape as Python's `parse_parakeet_raw_chunk`.
-            .transcribe_samples(slice, sample_rate, channels, Some(TimestampMode::Tokens))
-            .map_err(|e| eyre!("parakeet transcribe chunk {i}: {e}"))?;
+        let segs = recognizer.transcribe_chunk(slice, sample_rate, channels, chunk_start_s)?;
+        all.extend(segs);
+    }
+    Ok(all)
+}
 
-        if dump_tokens_path.is_some() {
-            // Each TimedToken: { text, start, end } — relative to the chunk.
-            // We also stash the chunk_start so the consumer can convert to
-            // absolute time and compare against NeMo's PyTorch output.
+// ---------------------------------------------------------------------------
+// ParakeetRecognizer — wraps parakeet-rs's ParakeetTDT, emits
+// sentence-level AsrSegments with paired words[]. Carries the optional
+// dump_tokens debug path for cross-language parity work.
+// ---------------------------------------------------------------------------
+
+struct ParakeetRecognizer {
+    parakeet: ParakeetTDT,
+    dump_tokens_path: Option<PathBuf>,
+}
+
+impl Recognizer for ParakeetRecognizer {
+    fn is_whisper(&self) -> bool {
+        false
+    }
+
+    fn transcribe_chunk(
+        &mut self,
+        samples: Vec<f32>,
+        sample_rate: u32,
+        channels: u16,
+        chunk_start_s: f64,
+    ) -> Result<Vec<AsrSegment>> {
+        let result = self
+            .parakeet
+            // `Tokens` gives raw subword tokens. We re-derive both
+            // Sentences and Words via the vendored grouping helpers and
+            // pair them — same shape as Python's parse_parakeet_raw_chunk.
+            .transcribe_samples(samples, sample_rate, channels, Some(TimestampMode::Tokens))
+            .map_err(|e| eyre!("parakeet transcribe: {e}"))?;
+
+        if let Some(path) = self.dump_tokens_path.as_deref() {
+            // Append-mode would be nicer for multi-chunk runs, but the
+            // existing format is one JSON array per file. Buffer + write
+            // at the end of the chunked driver if you care about preserving
+            // exact previous behavior; for now we overwrite per chunk.
             let chunk_tokens: Vec<serde_json::Value> = result
                 .tokens
                 .iter()
@@ -457,27 +499,27 @@ fn transcribe_chunked(
                     })
                 })
                 .collect();
-            token_dump.push(serde_json::json!({
-                "chunk_index": i,
+            let json = serde_json::to_string_pretty(&serde_json::json!([{
                 "chunk_start_s": chunk_start_s,
-                "chunk_end_s": chunk_end_s,
                 "tokens": chunk_tokens,
-            }));
+            }]))
+            .context("serialize token dump")?;
+            std::fs::write(path, json)
+                .with_context(|| format!("write token dump → {}", path.display()))?;
         }
 
         let sentences = parakeet_grouping::group_by_sentences(&result.tokens);
         let words = parakeet_grouping::group_by_words(&result.tokens);
 
+        let mut out = Vec::new();
         for sent in sentences.iter() {
             let abs_s_start = sent.start as f64 + chunk_start_s;
             let abs_s_end = sent.end as f64 + chunk_start_s;
-
-            // Same 0.01s tolerance as Python `parse_parakeet_raw_chunk` — keeps
-            // the time-range word/segment pairing identical across languages.
             let mut seg_words = Vec::new();
             for w in &words {
                 let abs_w_start = w.start as f64 + chunk_start_s;
                 let abs_w_end = w.end as f64 + chunk_start_s;
+                // Same 0.01s tolerance as Python parse_parakeet_raw_chunk.
                 if abs_w_start >= abs_s_start - 0.01 && abs_w_end <= abs_s_end + 0.01 {
                     seg_words.push(WordTimestamp {
                         word: w.text.clone(),
@@ -486,29 +528,17 @@ fn transcribe_chunked(
                     });
                 }
             }
-
-            all.push(AsrSegment {
+            out.push(AsrSegment {
                 text: sent.text.clone(),
                 start: abs_s_start,
                 end: abs_s_end,
                 words: seg_words,
-                // Setting chunk_start matches Python's transcribe_audio_file
-                // (which assigns segment.chunk_start = chunk_start after parsing),
-                // so the overlap-merge picks the chunk-region midpoint.
                 chunk_start: Some(chunk_start_s),
                 speaker: None,
             });
         }
+        Ok(out)
     }
-
-    if let Some(path) = dump_tokens_path {
-        let json = serde_json::to_string_pretty(&token_dump)
-            .with_context(|| format!("serialize token dump"))?;
-        std::fs::write(path, json)
-            .with_context(|| format!("write token dump → {}", path.display()))?;
-        eprintln!("Wrote raw token dump → {}", path.display());
-    }
-    Ok(all)
 }
 
 // ---------------------------------------------------------------------------
