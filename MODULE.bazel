@@ -164,10 +164,24 @@ crate.from_cargo(
 # the user env (homebrew clang sets it to 11.0 by default); Bazel's
 # sandbox doesn't, so without this annotation the cmake build fails
 # with "'exists' is unavailable: introduced in macOS 10.15".
+#
+# CMAKE_{C,CXX}_FLAGS=-U__ARM_FEATURE_MATMUL_INT8 — whisper.cpp's
+# ggml-cpu-quants.c uses `vmmlaq_s32` (an ARMv8.6 i8mm intrinsic)
+# under `#ifdef __ARM_FEATURE_MATMUL_INT8`. On some Apple-silicon clang
+# versions that macro is defined but the compiler isn't actually
+# invoked with the i8mm feature flag, producing
+# "always_inline function 'vmmlaq_s32' requires target feature 'i8mm'".
+# We hit this on the GitHub macos-latest (macOS 14) runner but not on
+# a local M-series box. Undefining the macro surgically disables the
+# broken code path; the slower scalar fallback is selected at
+# preprocess time. whisper-rs-sys's build.rs forwards any CMAKE_* env
+# var to cmake as `-D<KEY>=<VALUE>`.
 crate.annotation(
     crate = "whisper-rs-sys",
     build_script_env = {
         "MACOSX_DEPLOYMENT_TARGET": "11.0",
+        "CMAKE_C_FLAGS": "-U__ARM_FEATURE_MATMUL_INT8",
+        "CMAKE_CXX_FLAGS": "-U__ARM_FEATURE_MATMUL_INT8",
     },
 )
 
