@@ -70,8 +70,15 @@ build/
 onelogger.err
 nemo_experiments/
 
-# ML Models cache (optional - comment out if you want to track models)
-models/
+# ML Models cache (optional - comment out if you want to track models).
+# Pattern is `models/*` (not `models/`) so negation rules below can
+# re-include specific committed model directories — git ignores
+# negations under a fully-ignored parent.
+models/*
+# Exception: the wespeaker ONNX we ship is small (~27 MB) and built once
+# from scripts/export_wespeaker_onnx.py — bundled with the .app, not
+# downloaded at runtime. See models/wespeaker-voxceleb-resnet34-LM-onnx/SOURCE_PROVENANCE.md.
+!models/wespeaker-voxceleb-resnet34-LM-onnx/
 .cache/huggingface/
 .envrc.private
 .DS_Store
@@ -83,3 +90,9 @@ bazel-testlogs
 bazel-caption_editor
 bazel-code
 .bazelrc.user
+out/
+*.tsbuildinfo
+
+# Staging dir for the //transcribe_rs/ binaries that electron-builder
+# bundles into Contents/Resources/bin/. Populated by `npm run build:rust`.
+dist-rust/

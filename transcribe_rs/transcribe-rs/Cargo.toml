@@ -1,0 +1,24 @@
+[package]
+name = "transcribe-rs-cli"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish.workspace = true
+description = "Rust replacement for transcribe/transcribe_cli.py."
+
+[[bin]]
+name = "transcribe-rs"
+path = "src/main.rs"
+
+[dependencies]
+caption-schema = { path = "../caption-schema" }
+caption-core = { path = "../caption-core" }
+clap = { workspace = true }
+eyre = { workspace = true }
+hound = { workspace = true }
+serde_json = { workspace = true }
+hf-hub = { workspace = true }
+parakeet-rs = { workspace = true, features = ["coreml"] }
+whisper-rs = { workspace = true }
+tempfile = "3"
+sha2 = "0.10"

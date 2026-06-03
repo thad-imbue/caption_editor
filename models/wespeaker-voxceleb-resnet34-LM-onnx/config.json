@@ -1,0 +1,17 @@
+{
+  "model_type": "wespeaker-resnet34",
+  "input_name": "feats",
+  "input_shape": "(batch, frames, 80)",
+  "output_name": "embs",
+  "output_shape": "(batch, 256)",
+  "fbank": {
+    "sample_rate": 16000,
+    "num_mel_bins": 80,
+    "frame_length_ms": 25,
+    "frame_shift_ms": 10,
+    "dither": 0.0,
+    "window_type": "hamming",
+    "centering": "global_mean",
+    "comment": "Preprocessing matches kaldi.fbank with these params, applied to int16-scaled audio, then per-utterance mean subtraction. knf-rs (kaldi-native-fbank) produces equivalent features up to a constant log-mel offset that the mean-subtraction cancels."
+  }
+}

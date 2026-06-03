@@ -124,3 +124,51 @@ pnpm = use_extension(
     dev_dependency = True,
 )
 use_repo(pnpm, "pnpm")
+
+# rules_rust — host of the //transcribe_rs/ workspace (Rust replacement for
+# the //transcribe/ Python ML pipeline; see transcribe_rs/SPIKE_NOTES.md).
+#
+# Toolchain: registers a hermetic rustc + cargo. We pin a single edition (2021)
+# and a single channel (stable) across the workspace.
+#
+# Dep ingestion: crate_universe `from_cargo` reads transcribe_rs/Cargo.toml +
+# transcribe_rs/Cargo.lock and synthesises @crates//<crate>: targets. This
+# means Cargo.lock is the single source of truth for versions — bumping deps
+# is `cargo update` in transcribe_rs/, then `bazel mod tidy` to refresh the
+# resolved crate graph.
+bazel_dep(name = "rules_rust", version = "0.70.0")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    # Pin via versions list; the workspace Cargo.toml's MSRV-equivalent is
+    # whatever parakeet-rs + ort 2.0-rc.12 accept. Host toolchain confirmed
+    # to compile cleanly on rustc 1.93 (homebrew), so anchor the floor there.
+    versions = ["1.93.0"],
+)
+use_repo(rust, "rust_toolchains")
+register_toolchains("@rust_toolchains//:all")
+
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lockfile = "//transcribe_rs:Cargo.lock",
+    # Only the workspace root is needed — `from_cargo` walks the workspace
+    # `members` from there to discover per-crate manifests.
+    manifests = ["//transcribe_rs:Cargo.toml"],
+)
+
+# whisper-rs-sys vendors whisper.cpp, which uses C++17 `std::filesystem`
+# (`exists`, `directory_iterator`, etc.). Those APIs are gated on
+# macOS 10.15+. Cargo on the host inherits MACOSX_DEPLOYMENT_TARGET from
+# the user env (homebrew clang sets it to 11.0 by default); Bazel's
+# sandbox doesn't, so without this annotation the cmake build fails
+# with "'exists' is unavailable: introduced in macOS 10.15".
+crate.annotation(
+    crate = "whisper-rs-sys",
+    build_script_env = {
+        "MACOSX_DEPLOYMENT_TARGET": "11.0",
+    },
+)
+
+use_repo(crate, "crates")

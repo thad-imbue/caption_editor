@@ -3,13 +3,11 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { exec, type ChildProcess } from 'child_process'
-import { promisify } from 'util'
+import { type ChildProcess } from 'child_process'
 import * as os from 'os'
-import { APP_VERSION, UV_VERSION, ASR_COMMIT_HASH, ASR_GITHUB_REPO } from './constants'
+import { APP_VERSION } from './constants'
 import { findBackupPath } from '../src/utils/fileUtils'
 
-const execAsync = promisify(exec)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -765,74 +763,58 @@ ipcMain.on('menu:updateAsrEnabled', (_event, options: boolean | { caption?: bool
 })
 
 /**
- * Ensures uv and uvx binaries are available in the ~/.cache/caption_editor/bin directory.
- * Downloads them from GitHub releases if missing.
+ * Locate the //transcribe_rs/ Rust ASR binaries. Tries, in order:
+ *
+ *   1. Env-var override (CAPTION_EDITOR_TRANSCRIBE_RS_BIN /
+ *      CAPTION_EDITOR_EMBED_RS_BIN). For local A/B testing of an
+ *      uncommitted build — when one or both are set, they win.
+ *   2. Inside-app bundle at `Contents/Resources/bin/`
+ *      (production .app — populated by electron-builder's
+ *      `extraResources` and signed alongside the main bundle).
+ *   3. Dev fallback at `<repo>/dist-rust/` (populated by
+ *      `npm run build:rust`, which is what `package:mac` runs
+ *      before electron-builder — so the same files exist in both
+ *      dev and prod, just under different paths).
+ *
+ * Throws with a clear message if none of those hit. Each callsite
+ * resolves once per runAsrTool invocation; the cost is two
+ * `existsSync` calls so we don't bother caching.
  */
-async function ensureUvBinaries(onLog?: (msg: string) => void): Promise<{ uv: string, uvx: string }> {
-  const cacheDir = path.join(os.homedir(), '.cache', 'caption_editor')
-  const binDir = path.join(cacheDir, 'bin')
-  if (!existsSync(binDir)) {
-    mkdirSync(binDir, { recursive: true })
+function resolveRustAsrPaths(): { transcribeRs: string; embedRs: string } {
+  const envTr = process.env.CAPTION_EDITOR_TRANSCRIBE_RS_BIN
+  const envEmb = process.env.CAPTION_EDITOR_EMBED_RS_BIN
+
+  const candidates = [
+    // (label, transcribeRs path, embedRs path)
+    ['bundled (Contents/Resources/bin)', path.join(process.resourcesPath, 'bin', 'transcribe-rs'), path.join(process.resourcesPath, 'bin', 'embed-rs')],
+    // __dirname under a packaged app is inside the .app; under dev
+    // it's `<repo>/dist-electron/`, so `../dist-rust/` lands in the
+    // repo's staging dir.
+    ['dev fallback (<repo>/dist-rust)', path.join(__dirname, '..', 'dist-rust', 'transcribe-rs'), path.join(__dirname, '..', 'dist-rust', 'embed-rs')],
+  ] as const
+
+  // Env-var override wins outright if set — it may point at a
+  // bazel-bin path, a custom build, or a downloaded artifact.
+  if (envTr && envEmb) {
+    if (!existsSync(envTr)) throw new Error(`CAPTION_EDITOR_TRANSCRIBE_RS_BIN=${envTr} does not exist`)
+    if (!existsSync(envEmb)) throw new Error(`CAPTION_EDITOR_EMBED_RS_BIN=${envEmb} does not exist`)
+    return { transcribeRs: envTr, embedRs: envEmb }
   }
-
-  const uvPath = path.join(binDir, 'uv')
-  const uvxPath = path.join(binDir, 'uvx')
-
-  if (existsSync(uvPath) && existsSync(uvxPath)) {
-    return { uv: uvPath, uvx: uvxPath }
-  }
-
-  const log = (msg: string) => {
-    console.log(`[main] ${msg}`)
-    if (onLog) onLog(msg + '\n')
-  }
-
-  log(`UV binaries missing. Downloading version ${UV_VERSION}...`)
-
-  const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64'
-  const platform = process.platform === 'darwin' ? 'apple-darwin' : 'unknown-linux-musl'
-  const assetName = `uv-${arch}-${platform}.tar.gz`
-  const downloadUrl = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/${assetName}`
-  const tarPath = path.join(binDir, assetName)
-
-  try {
-    log(`Downloading from ${downloadUrl}...`)
-    const response = await net.fetch(downloadUrl)
-    if (!response.ok) throw new Error(`Failed to download uv: ${response.statusText}`)
-
-    const buffer = await response.arrayBuffer()
-    await fs.writeFile(tarPath, Buffer.from(buffer))
-
-    log(`Extracting ${assetName}...`)
-    const extractDir = path.join(binDir, 'extract')
-    if (existsSync(extractDir)) await fs.rm(extractDir, { recursive: true, force: true })
-    mkdirSync(extractDir)
-
-    await execAsync(`tar -xzf "${tarPath}" -C "${extractDir}"`)
-
-    const subfolder = assetName.replace('.tar.gz', '')
-    const extractedUv = path.join(extractDir, subfolder, 'uv')
-    const extractedUvx = path.join(extractDir, subfolder, 'uvx')
-
-    if (!existsSync(extractedUv)) {
-      throw new Error(`Could not find uv binary in extracted archive ${assetName}`)
+  // Partial override — only one set: fill the other from the first
+  // hit in the fallback list.
+  for (const [, tr, emb] of candidates) {
+    const resolvedTr = envTr ?? (existsSync(tr) ? tr : null)
+    const resolvedEmb = envEmb ?? (existsSync(emb) ? emb : null)
+    if (resolvedTr && resolvedEmb) {
+      return { transcribeRs: resolvedTr, embedRs: resolvedEmb }
     }
-
-    await fs.rename(extractedUv, uvPath)
-    await fs.rename(extractedUvx, uvxPath)
-
-    await fs.rm(extractDir, { recursive: true, force: true })
-    await fs.unlink(tarPath)
-
-    await fs.chmod(uvPath, 0o755)
-    await fs.chmod(uvxPath, 0o755)
-
-    log(`UV binaries successfully installed to ${binDir}`)
-    return { uv: uvPath, uvx: uvxPath }
-  } catch (error) {
-    log(`Failed to ensure UV binaries: ${error}`)
-    throw error
   }
+
+  throw new Error(
+    `Could not locate the Rust ASR binaries. Tried:\n` +
+    candidates.map(([label, tr]) => `  - ${label}: ${tr}`).join('\n') +
+    `\nBuild them with \`npm run build:rust\` (or \`bazelisk build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs\`).`,
+  )
 }
 
 /**
@@ -890,27 +872,25 @@ async function runAsrTool(options: {
     }
   }
 
-  // Determine if we're in dev mode
-  const runFromCodeTree = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
-  const isDev = runFromCodeTree || process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL
-
   let pythonCommand: string
   let pythonArgs: string[]
   let cwd: string
-  let tempOverridesPath: string | null = null
 
-  if (isDev) {
-    const codeTreeRoot = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
-      ? (process.env.CAPTION_EDITOR_CODE_TREE_ROOT || path.join(__dirname, '..'))
-      : path.join(__dirname, '..')
+  // Playwright E2E tests opt into the legacy Python ASR path by exporting
+  // CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1 (+ _CODE_TREE_ROOT).
+  // Everything else uses the Rust binaries — both dev (`npm run
+  // dev:electron:watch`) and the packaged .app go through the same
+  // resolveRustAsrPaths() call below; only the resolved file path
+  // differs. The Python branch stays until those tests are ported to
+  // use the Rust binaries (or deleted along with transcribe/).
+  const useLegacyPython = process.env.CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE === '1'
 
+  if (useLegacyPython) {
+    const codeTreeRoot = process.env.CAPTION_EDITOR_CODE_TREE_ROOT || path.join(__dirname, '..')
     pythonCommand = 'uv'
     pythonArgs = ['run', 'python', script, inputPath]
     cwd = path.join(codeTreeRoot, 'transcribe')
-
-    if (script === 'transcribe_cli.py' && chunkSize !== undefined) {
-      pythonArgs.push('--chunk-size', chunkSize.toString())
-    }
+    if (script === 'transcribe_cli.py' && chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
     if (model) pythonArgs.push('--model', model)
     if (script === 'transcribe_cli.py' && remuxMp3) pythonArgs.push('--remux-mp3')
 
@@ -919,39 +899,22 @@ async function runAsrTool(options: {
       throw new Error(`${script} not found at ${scriptPath}`)
     }
   } else {
-    // Production mode: use downloaded uvx
-    const { uvx } = await ensureUvBinaries((msg) => sendOutput('stdout', msg))
-    pythonCommand = uvx
-
-    const entryPoint = script.replace('.py', '')
-    const overridesPath = path.join(__dirname, '..', 'electron', 'overrides.txt')
-    // uvx has issues with spaces in file paths in some environments.
-    // Our repo path often includes spaces (e.g. "Imbue Dropbox"), so copy
-    // overrides.txt to a temp path with no spaces before invoking uvx.
-    const overridesPathForUvx = path.join(os.tmpdir(), `caption_editor_overrides_${processId}.txt`)
-    pythonArgs = [
-      // Pin Python to 3.12: kaldialign (transitive via nemo-toolkit) has no
-      // prebuilt wheel for cpython-313 on macOS arm64, so an unpinned uvx on
-      // a 3.13 system tries a source build and fails without cmake. 3.12 has
-      // wheels and matches transcribe/pyproject.toml's `requires-python<3.13`.
-      '--python', '3.12',
-      '--from', `${ASR_GITHUB_REPO}@${ASR_COMMIT_HASH}#subdirectory=transcribe`,
-      '--overrides', overridesPathForUvx,
-      entryPoint,
-      inputPath
-    ]
-    cwd = os.tmpdir()
-
-    if (script === 'transcribe_cli.py' && chunkSize !== undefined) {
-      pythonArgs.push('--chunk-size', chunkSize.toString())
+    const { transcribeRs, embedRs } = resolveRustAsrPaths()
+    pythonCommand = (script === 'transcribe_cli.py' ? transcribeRs : embedRs)
+    pythonArgs = [inputPath]
+    if (script === 'transcribe_cli.py') {
+      if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
+      if (model) pythonArgs.push('--model', model)
+      if (remuxMp3) pythonArgs.push('--remux-mp3')
+      // transcribe-rs auto-embeds via a sibling embed-rs binary; pass
+      // --embed-bin explicitly so the embed step uses the same one we
+      // resolved here (regardless of install layout).
+      pythonArgs.push('--embed-bin', embedRs)
+    } else {
+      // embed-rs
+      if (model) pythonArgs.push('--model', model)
     }
-    if (model) pythonArgs.push('--model', model)
-    if (script === 'transcribe_cli.py' && remuxMp3) pythonArgs.push('--remux-mp3')
-
-    if (!existsSync(pythonCommand)) throw new Error(`UV/UVX binary not found at ${pythonCommand}`)
-    if (!existsSync(overridesPath)) throw new Error(`overrides.txt not found at ${overridesPath}`)
-    await fs.copyFile(overridesPath, overridesPathForUvx)
-    tempOverridesPath = overridesPathForUvx
+    cwd = os.tmpdir()
   }
 
   options.senderWebContents?.send('asr:started', { processId })
@@ -1007,9 +970,6 @@ async function runAsrTool(options: {
 
     proc.on('close', (code) => {
       activeProcesses.delete(processId)
-      if (tempOverridesPath) {
-        fs.unlink(tempOverridesPath).catch(() => { })
-      }
       if (code === 0) {
         resolve({ success: true, script, processId })
       } else if (canceled || code === 143) {
@@ -1025,9 +985,6 @@ async function runAsrTool(options: {
 
     proc.on('error', (err) => {
       activeProcesses.delete(processId)
-      if (tempOverridesPath) {
-        fs.unlink(tempOverridesPath).catch(() => { })
-      }
       if (canceled) {
         resolve({ success: false, error: 'Canceled', canceled: true })
       } else {

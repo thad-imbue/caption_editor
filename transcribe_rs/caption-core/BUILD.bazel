@@ -1,0 +1,67 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_test_suite")
+
+exports_files(
+    ["Cargo.toml"],
+    visibility = ["//visibility:public"],
+)
+
+# Rust port of transcribe/asr_results_to_captions.py post-processing.
+rust_library(
+    name = "caption_core",
+    srcs = glob(["src/**/*.rs"]),
+    aliases = aliases(),
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True) + [
+        "//transcribe_rs/caption-schema:caption_schema",
+    ],
+    visibility = ["//transcribe_rs:__subpackages__"],
+)
+
+rust_test(
+    name = "caption_core_test",
+    aliases = aliases(normal_dev = True, proc_macro_dev = True),
+    crate = ":caption_core",
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True, proc_macro_dev = True),
+    deps = all_crate_deps(normal = True, normal_dev = True) + [
+        "//transcribe_rs/caption-schema:caption_schema",
+    ],
+)
+
+# Integration test: cross-language parity against the Python pipeline using
+# the SAME captured-ASR fixtures the Python snapshot suite uses
+# (//transcribe:test_fixtures). insta snapshots committed under
+# tests/snapshots/ are the Rust source of truth; the Python suite uses
+# the .ambr files in //transcribe/__snapshots__/. If both languages keep
+# passing, the two implementations agree on the post-processing math.
+rust_test(
+    # Name matches the .rs filename so insta resolves snapshot paths the
+    # same way under Bazel as under `cargo test` — insta keys snapshots by
+    # the test binary's crate name (`post_processing_pipeline`).
+    name = "post_processing_pipeline",
+    srcs = ["tests/post_processing_pipeline.rs"],
+    aliases = aliases(normal_dev = True, proc_macro_dev = True),
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(proc_macro = True, proc_macro_dev = True),
+    deps = all_crate_deps(normal = True, normal_dev = True) + [
+        ":caption_core",
+        "//transcribe_rs/caption-schema:caption_schema",
+    ],
+    # `include_bytes!` resolves at compile time relative to the .rs file —
+    # the fixture JSONs must be visible to rustc.
+    compile_data = [
+        "//transcribe:test_fixtures/whisper_chunked_10s_raw_output.json",
+        "//transcribe:test_fixtures/whisper_chunked_60s_raw_output.json",
+        "//transcribe:test_fixtures/parakeet_chunked_10s_raw_output.json",
+        "//transcribe:test_fixtures/parakeet_chunked_60s_raw_output.json",
+    ],
+    # Snapshot files are read at test time by insta when comparing. Bazel
+    # places them in runfiles via this `data` attribute; `INSTA_WORKSPACE_ROOT`
+    # tells insta where the workspace root is in the sandbox.
+    data = glob(["tests/snapshots/*.snap"]),
+    env = {
+        "INSTA_WORKSPACE_ROOT": ".",
+    },
+)

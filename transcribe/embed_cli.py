@@ -1,5 +1,15 @@
 """Command-line interface for computing speaker embeddings for `.captions_json5` files.
 
+DEPRECATED — superseded by //transcribe_rs/embed-rs/ (the Rust port).
+
+The Electron app no longer invokes this script; it runs the bundled Rust
+binary in both production and dev (see electron/main.ts
+`resolveRustAsrPaths`). This file is kept for the few Playwright E2E
+tests in tests/electron/ that still opt into the legacy Python path with
+`CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=1`, and as a reference
+implementation. The Rust port also produces wespeaker embeddings via the
+same ONNX model and includes a UMAP reduction step.
+
 Example usage:
 uv run embed_cli path/to/captions.captions_json5
 """

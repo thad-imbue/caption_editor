@@ -1,0 +1,29 @@
+[package]
+name = "embed-rs-cli"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish.workspace = true
+description = "Rust replacement for transcribe/embed_cli.py."
+
+[[bin]]
+name = "embed-rs"
+path = "src/main.rs"
+
+[dependencies]
+caption-schema = { path = "../caption-schema" }
+clap = { workspace = true }
+eyre = { workspace = true }
+serde_json = { workspace = true }
+hf-hub = { workspace = true }
+hound = { workspace = true }
+ndarray = { workspace = true }
+ort = { workspace = true, features = ["coreml"] }
+knf-rs = { workspace = true }
+tempfile = "3"
+umap-rs = { workspace = true }
+rand = { workspace = true }
+
+[features]
+default = ["ort-defaults"]
+ort-defaults = ["ort/default"]

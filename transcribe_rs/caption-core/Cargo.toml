@@ -1,0 +1,18 @@
+[package]
+name = "caption-core"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish.workspace = true
+description = "Rust port of transcribe/asr_results_to_captions.py post-processing pipeline."
+
+[dependencies]
+caption-schema = { path = "../caption-schema" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

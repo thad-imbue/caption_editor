@@ -18,11 +18,13 @@ test.describe('Full E2E Pipeline @expensive', () => {
 
     const env = {
       ...process.env,
-      // Use NODE_ENV=test so Electron doesn't intercept close with the
-      // "unsaved changes" confirmation dialog during E2E.
-      // We still exercise the uvx path by keeping CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE=0.
+      // NODE_ENV=test so Electron doesn't intercept close with the
+      // "unsaved changes" confirmation dialog. The ASR pipeline picks
+      // up the Rust binaries from <repo>/dist-rust/ (populated by
+      // `npm run test:e2e` → `build:rust`). Whisper-tiny (set via
+      // __ASR_MODEL_OVERRIDE in the renderer) routes through
+      // transcribe-rs's WhisperRecognizer / whisper.cpp backend.
       NODE_ENV: 'test',
-      CAPTION_EDITOR_RUN_TRANSCRIBE_FROM_CODE_TREE: '0',
       DISPLAY: process.env.DISPLAY || ':99'
     }
 

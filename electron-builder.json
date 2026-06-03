@@ -14,6 +14,11 @@
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
   },
+  "extraResources": [
+    { "from": "dist-rust/transcribe-rs", "to": "bin/transcribe-rs" },
+    { "from": "dist-rust/embed-rs", "to": "bin/embed-rs" },
+    { "from": "dist-rust/wespeaker-onnx", "to": "wespeaker-onnx" }
+  ],
   "fileAssociations": [
     {
       "ext": "srt",

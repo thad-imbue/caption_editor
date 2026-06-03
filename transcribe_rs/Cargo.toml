@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "caption-schema",
+    "caption-core",
+    "transcribe-rs",
+    "embed-rs",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+# Kept in lockstep with electron/constants.ts `APP_VERSION` and enforced
+# by //tools/bazel:version_consistency_test. The release workflow builds
+# these crates and attaches `{transcribe,embed}-rs-v${APP_VERSION}-darwin-arm64`
+# to the GitHub release; the Electron app downloads by version tag.
+# Bump procedure: see ../CLAUDE.md → "Version Management".
+version = "1.6.4"
+publish = false
+
+[workspace.dependencies]
+# Shared deps — workspace-pinned so every crate gets the same version
+# (and Cargo's resolver picks one copy in the build graph).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+json5 = "0.4"
+clap = { version = "4", features = ["derive"] }
+eyre = "0.6"
+thiserror = "2"
+hound = "3.5"
+ndarray = "0.17"
+hf-hub = { version = "0.4", default-features = false, features = ["ureq", "rustls-tls"] }
+# ort rc.12 matches what parakeet-rs 0.3 pins. Aligning across the workspace
+# keeps Cargo from picking two onnxruntime native libs.
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "api-24"] }
+knf-rs = "0.3"
+parakeet-rs = { version = "0.3", default-features = false, features = ["cpu", "ort-defaults"] }
+# whisper-rs wraps whisper.cpp; build chain is cmake + bindgen + C++17,
+# the same shape as knf-rs-sys we already build under rules_rust.
+# Default features link whisper.cpp's bundled GGML implementation; we
+# don't enable coreml/metal here to keep the build simple.
+whisper-rs = { version = "0.14", default-features = false, features = [] }
+insta = { version = "1", features = ["json", "yaml"] }
+umap-rs = "0.4"
+rand = "0.9"

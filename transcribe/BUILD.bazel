@@ -8,6 +8,15 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+# Captured raw chunked ASR output. Used by both:
+#  - //transcribe:asr_results_to_captions_post_processing_pipeline_test
+#  - //transcribe_rs/caption-core:post_processing_pipeline_test
+# so the two implementations are exercised against the same inputs.
+exports_files(
+    glob(["test_fixtures/*.json"]),
+    visibility = ["//transcribe_rs:__subpackages__"],
+)
+
 # `imports = ["."]` puts this directory on PYTHONPATH for downstream
 # py_test targets, mirroring the flat-package layout the transcribe
 # package already uses (modules import each other by bare name:
@@ -181,3 +190,35 @@ transcribe_pytest(
     deps = _HEAVY_TEST_DEPS,
     tags = _HEAVY_TAGS,
 )
+
+# Cross-language CLI parity tests. The Rust binaries are wired as `data`
+# so Bazel keeps them rebuilt and on disk, but TRANSCRIBE_RS_BIN /
+# EMBED_RS_BIN are NOT injected by Bazel — the tests `pytest.skip` when
+# the vars are unset, so default `bazel test //...` no-ops these (the
+# binaries need network access to pull HF models, which the Bazel
+# sandbox blocks). Trigger manually:
+#
+#   bazel build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs
+#   TRANSCRIBE_RS_BIN=$(bazel info bazel-bin)/transcribe_rs/transcribe-rs/transcribe-rs \
+#   EMBED_RS_BIN=$(bazel info bazel-bin)/transcribe_rs/embed-rs/embed-rs \
+#   bazel test //transcribe:transcribe_rs_parity_test \
+#     --test_env=TRANSCRIBE_RS_BIN --test_env=EMBED_RS_BIN \
+#     --test_output=streamed
+transcribe_pytest(
+    name = "transcribe_rs_parity_test",
+    test_file = "transcribe_rs_parity_test.py",
+    data = _HEAVY_TEST_DATA + [
+        "//transcribe_rs/transcribe-rs:transcribe-rs",
+        "//transcribe_rs/embed-rs:embed-rs",
+    ],
+    deps = _CHEAP_TEST_DEPS,
+    # `manual` keeps default `bazel test //...` from picking them up
+    # even on a host that happens to have the env vars exported.
+    tags = _HEAVY_TAGS + ["requires-network", "manual"],
+)
+
+# (released_rust_asr_test removed: the Rust binaries no longer ship as
+# separate Release artifacts. They're bundled inside the signed/notarized
+# .app via electron-builder.json's `extraResources`, so the "is the
+# released binary usable" question is now equivalent to "does the .dmg
+# install + launch cleanly".)

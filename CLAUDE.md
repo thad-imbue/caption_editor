@@ -12,8 +12,15 @@
 
 **IMPORTANT: When changing Node.js/TypeScript code, bump the Electron app version!**
 
-1. **`APP_VERSION`** — In `electron/constants.ts`. Single source of truth for the app version.
-2. **`ASR_COMMIT_HASH`** — Same string in `electron/constants.ts` and `transcribe/constants.py`. This is the revision **Electron passes to `uvx`** (must be on GitHub with a working `transcribe/` package). It is also baked into `.captions_json5` header blob URLs when the app or CLI serializes a file.
+1. **`APP_VERSION`** — Declared in three files that MUST stay in lockstep
+   (enforced by `//tools/bazel:version_consistency_test`):
+   - `electron/constants.ts`: `export const APP_VERSION = '1.6.1'`
+   - `transcribe_rs/version.bzl`: `APP_VERSION = "1.6.1"` (used by BUILD.bazel files to stamp `CARGO_PKG_VERSION` so the Rust binaries' `--version` flag matches)
+   - `transcribe_rs/Cargo.toml`: `workspace.package.version = "1.6.1"` (used when building via `cargo` outside Bazel)
+
+   The GitHub Release workflow attaches the Rust binaries as `transcribe-rs-v${APP_VERSION}-darwin-arm64` and `embed-rs-v${APP_VERSION}-darwin-arm64`. The Electron app downloads by version tag.
+
+2. **`ASR_COMMIT_HASH`** — *Deprecated, used during the Python→Rust migration.* Same string in `electron/constants.ts` and `transcribe/constants.py`. This is the revision **Electron passes to `uvx`** (must be on GitHub with a working `transcribe/` package). It is also baked into `.captions_json5` header blob URLs when the app or CLI serializes a file.
 
 **Why the pin can’t match “this” commit’s tree:** A git commit id is the hash of that commit’s tree. The tree cannot truthfully contain its own commit id as file text (changing the text would change the tree and thus the id). So the usual release is **two commits**: commit **A** bumps `APP_VERSION`; commit **B** sets `ASR_COMMIT_HASH` to **A**’s hash in both files. The tarball **at A** still has the *previous* `ASR_COMMIT_HASH` inside `transcribe/constants.py` — that does **not** break production: uvx uses the rev from **Electron**, not from Python’s constant. For local `uv run transcribe_cli` with headers matching the pin, work from `main` **after B** (or accept one-commit lag on a checkout exactly at **A**).
 
@@ -106,7 +113,27 @@ Saved/exported `.captions_json5` from `exportToString()` includes leading `//` h
 
 **ASR Integration**
 - Dev mode: Uses `uv run python transcribe_cli.py`
-- Production: Uses bundled `uvx` to fetch from GitHub at specific commit
+- Production: The signed/notarized .app bundles the
+  //transcribe_rs/transcribe-rs and //transcribe_rs/embed-rs Rust
+  binaries inside `Contents/Resources/bin/`. `npm run build:rust`
+  stages them under `dist-rust/`; electron-builder's `extraResources`
+  copies them into the .app, and the existing codesign+notarize+staple
+  flow signs them along with the rest of the Mach-O files in the
+  bundle. At runtime `main.ts` resolves them via `process.resourcesPath`.
+- **Rust bypass (experimental):** Set both env vars to invoke the
+  //transcribe_rs/ binaries instead of Python uvx. Args are wire-compatible
+  (--chunk-size, --model, --remux-mp3 forwarded as-is) so this is a drop-in
+  swap; setting only one of the two also works (e.g. test transcribe-rs
+  while still embedding via Python).
+  ```bash
+  bazelisk build //transcribe_rs/transcribe-rs //transcribe_rs/embed-rs
+  export CAPTION_EDITOR_TRANSCRIBE_RS_BIN=$(pwd)/bazel-bin/transcribe_rs/transcribe-rs/transcribe-rs
+  export CAPTION_EDITOR_EMBED_RS_BIN=$(pwd)/bazel-bin/transcribe_rs/embed-rs/embed-rs
+  # Optional: point parakeet at our own ONNX export (in lieu of HF id):
+  #   set the model to the local path in the app UI, or default to
+  #   istupakov/parakeet-tdt-0.6b-v3-onnx (auto-fetched via hf-hub).
+  npm run dev:electron:watch
+  ```
 - Default model: `nvidia/parakeet-tdt-0.6b-v3`
 - Test override: Set `window.__ASR_MODEL_OVERRIDE = 'openai/whisper-tiny'`
 

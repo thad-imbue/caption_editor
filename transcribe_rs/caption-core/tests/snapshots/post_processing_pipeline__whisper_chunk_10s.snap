@@ -1,0 +1,1672 @@
+---
+source: caption-core/tests/post_processing_pipeline.rs
+expression: "build_payload(\"whisper\", 10)"
+---
+{
+  "processed": {
+    "num_segments": 4,
+    "segments": [
+      {
+        "duration": 8.94,
+        "end_time": 8.94,
+        "start_time": 0.0,
+        "text": "The birch can use lid on the smooth planks. Glue the sheet blue easy the"
+      },
+      {
+        "duration": 6.32,
+        "end_time": 15.86,
+        "start_time": 9.54,
+        "text": "well. days chicken leg is a rare is often round"
+      },
+      {
+        "duration": 9.64,
+        "end_time": 28.64,
+        "start_time": 19.0,
+        "text": "punch. box beside pork fed corn steady faced"
+      },
+      {
+        "duration": 1.76,
+        "end_time": 32.0,
+        "start_time": 30.24,
+        "text": "A large size in stockings is hard to"
+      }
+    ]
+  },
+  "rawAsrOutput": {
+    "segments": [
+      {
+        "end": 0.68,
+        "start": 0.0,
+        "text": "The",
+        "words": [
+          {
+            "end": 0.68,
+            "start": 0.0,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 1.12,
+        "start": 0.68,
+        "text": "birch",
+        "words": [
+          {
+            "end": 1.12,
+            "start": 0.68,
+            "word": "birch"
+          }
+        ]
+      },
+      {
+        "end": 1.38,
+        "start": 1.12,
+        "text": "can",
+        "words": [
+          {
+            "end": 1.38,
+            "start": 1.12,
+            "word": "can"
+          }
+        ]
+      },
+      {
+        "end": 1.68,
+        "start": 1.38,
+        "text": "use",
+        "words": [
+          {
+            "end": 1.68,
+            "start": 1.38,
+            "word": "use"
+          }
+        ]
+      },
+      {
+        "end": 1.96,
+        "start": 1.68,
+        "text": "lid",
+        "words": [
+          {
+            "end": 1.96,
+            "start": 1.68,
+            "word": "lid"
+          }
+        ]
+      },
+      {
+        "end": 2.24,
+        "start": 1.96,
+        "text": "on",
+        "words": [
+          {
+            "end": 2.24,
+            "start": 1.96,
+            "word": "on"
+          }
+        ]
+      },
+      {
+        "end": 2.38,
+        "start": 2.24,
+        "text": "the",
+        "words": [
+          {
+            "end": 2.38,
+            "start": 2.24,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 2.7,
+        "start": 2.38,
+        "text": "smooth",
+        "words": [
+          {
+            "end": 2.7,
+            "start": 2.38,
+            "word": "smooth"
+          }
+        ]
+      },
+      {
+        "end": 4.62,
+        "start": 2.7,
+        "text": "planks.",
+        "words": [
+          {
+            "end": 4.62,
+            "start": 2.7,
+            "word": "planks."
+          }
+        ]
+      },
+      {
+        "end": 4.62,
+        "start": 4.62,
+        "text": "Glue",
+        "words": [
+          {
+            "end": 4.62,
+            "start": 4.62,
+            "word": "Glue"
+          }
+        ]
+      },
+      {
+        "end": 4.9,
+        "start": 4.62,
+        "text": "the",
+        "words": [
+          {
+            "end": 4.9,
+            "start": 4.62,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 5.06,
+        "start": 4.9,
+        "text": "sheet",
+        "words": [
+          {
+            "end": 5.06,
+            "start": 4.9,
+            "word": "sheet"
+          }
+        ]
+      },
+      {
+        "end": 5.3,
+        "start": 5.06,
+        "text": "to",
+        "words": [
+          {
+            "end": 5.3,
+            "start": 5.06,
+            "word": "to"
+          }
+        ]
+      },
+      {
+        "end": 5.44,
+        "start": 5.3,
+        "text": "the",
+        "words": [
+          {
+            "end": 5.44,
+            "start": 5.3,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 5.62,
+        "start": 5.44,
+        "text": "dark",
+        "words": [
+          {
+            "end": 5.62,
+            "start": 5.44,
+            "word": "dark"
+          }
+        ]
+      },
+      {
+        "end": 5.82,
+        "start": 5.62,
+        "text": "blue",
+        "words": [
+          {
+            "end": 5.82,
+            "start": 5.62,
+            "word": "blue"
+          }
+        ]
+      },
+      {
+        "end": 7.94,
+        "start": 5.82,
+        "text": "background.",
+        "words": [
+          {
+            "end": 7.94,
+            "start": 5.82,
+            "word": "background."
+          }
+        ]
+      },
+      {
+        "end": 8.04,
+        "start": 7.94,
+        "text": "It",
+        "words": [
+          {
+            "end": 8.04,
+            "start": 7.94,
+            "word": "It"
+          }
+        ]
+      },
+      {
+        "end": 8.16,
+        "start": 8.04,
+        "text": "is",
+        "words": [
+          {
+            "end": 8.16,
+            "start": 8.04,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 8.3,
+        "start": 8.16,
+        "text": "easy",
+        "words": [
+          {
+            "end": 8.3,
+            "start": 8.16,
+            "word": "easy"
+          }
+        ]
+      },
+      {
+        "end": 8.58,
+        "start": 8.3,
+        "text": "to",
+        "words": [
+          {
+            "end": 8.58,
+            "start": 8.3,
+            "word": "to"
+          }
+        ]
+      },
+      {
+        "end": 8.72,
+        "start": 8.58,
+        "text": "tell",
+        "words": [
+          {
+            "end": 8.72,
+            "start": 8.58,
+            "word": "tell"
+          }
+        ]
+      },
+      {
+        "end": 8.94,
+        "start": 8.72,
+        "text": "the",
+        "words": [
+          {
+            "end": 8.94,
+            "start": 8.72,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 9.14,
+        "start": 8.94,
+        "text": "depth",
+        "words": [
+          {
+            "end": 9.14,
+            "start": 8.94,
+            "word": "depth"
+          }
+        ]
+      },
+      {
+        "end": 9.46,
+        "start": 9.14,
+        "text": "of",
+        "words": [
+          {
+            "end": 9.46,
+            "start": 9.14,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 9.54,
+        "start": 9.46,
+        "text": "a",
+        "words": [
+          {
+            "end": 9.54,
+            "start": 9.46,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 5.2,
+        "start": 5.0,
+        "text": "to",
+        "words": [
+          {
+            "end": 5.2,
+            "start": 5.0,
+            "word": "to"
+          }
+        ]
+      },
+      {
+        "end": 5.36,
+        "start": 5.2,
+        "text": "the",
+        "words": [
+          {
+            "end": 5.36,
+            "start": 5.2,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 5.62,
+        "start": 5.36,
+        "text": "dark",
+        "words": [
+          {
+            "end": 5.62,
+            "start": 5.36,
+            "word": "dark"
+          }
+        ]
+      },
+      {
+        "end": 5.84,
+        "start": 5.62,
+        "text": "blue",
+        "words": [
+          {
+            "end": 5.84,
+            "start": 5.62,
+            "word": "blue"
+          }
+        ]
+      },
+      {
+        "end": 8.06,
+        "start": 5.84,
+        "text": "background.",
+        "words": [
+          {
+            "end": 8.06,
+            "start": 5.84,
+            "word": "background."
+          }
+        ]
+      },
+      {
+        "end": 8.06,
+        "start": 8.06,
+        "text": "It",
+        "words": [
+          {
+            "end": 8.06,
+            "start": 8.06,
+            "word": "It"
+          }
+        ]
+      },
+      {
+        "end": 8.16,
+        "start": 8.06,
+        "text": "is",
+        "words": [
+          {
+            "end": 8.16,
+            "start": 8.06,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 8.34,
+        "start": 8.16,
+        "text": "easy",
+        "words": [
+          {
+            "end": 8.34,
+            "start": 8.16,
+            "word": "easy"
+          }
+        ]
+      },
+      {
+        "end": 8.6,
+        "start": 8.34,
+        "text": "to",
+        "words": [
+          {
+            "end": 8.6,
+            "start": 8.34,
+            "word": "to"
+          }
+        ]
+      },
+      {
+        "end": 8.72,
+        "start": 8.6,
+        "text": "tell",
+        "words": [
+          {
+            "end": 8.72,
+            "start": 8.6,
+            "word": "tell"
+          }
+        ]
+      },
+      {
+        "end": 8.96,
+        "start": 8.72,
+        "text": "the",
+        "words": [
+          {
+            "end": 8.96,
+            "start": 8.72,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 9.16,
+        "start": 8.96,
+        "text": "depth",
+        "words": [
+          {
+            "end": 9.16,
+            "start": 8.96,
+            "word": "depth"
+          }
+        ]
+      },
+      {
+        "end": 9.48,
+        "start": 9.16,
+        "text": "of",
+        "words": [
+          {
+            "end": 9.48,
+            "start": 9.16,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 9.54,
+        "start": 9.48,
+        "text": "a",
+        "words": [
+          {
+            "end": 9.54,
+            "start": 9.48,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 10.98,
+        "start": 9.54,
+        "text": "well.",
+        "words": [
+          {
+            "end": 10.98,
+            "start": 9.54,
+            "word": "well."
+          }
+        ]
+      },
+      {
+        "end": 11.18,
+        "start": 10.98,
+        "text": "These",
+        "words": [
+          {
+            "end": 11.18,
+            "start": 10.98,
+            "word": "These"
+          }
+        ]
+      },
+      {
+        "end": 11.44,
+        "start": 11.18,
+        "text": "days",
+        "words": [
+          {
+            "end": 11.44,
+            "start": 11.18,
+            "word": "days"
+          }
+        ]
+      },
+      {
+        "end": 11.62,
+        "start": 11.44,
+        "text": "a",
+        "words": [
+          {
+            "end": 11.62,
+            "start": 11.44,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 11.82,
+        "start": 11.62,
+        "text": "chicken",
+        "words": [
+          {
+            "end": 11.82,
+            "start": 11.62,
+            "word": "chicken"
+          }
+        ]
+      },
+      {
+        "end": 12.04,
+        "start": 11.82,
+        "text": "leg",
+        "words": [
+          {
+            "end": 12.04,
+            "start": 11.82,
+            "word": "leg"
+          }
+        ]
+      },
+      {
+        "end": 12.24,
+        "start": 12.04,
+        "text": "is",
+        "words": [
+          {
+            "end": 12.24,
+            "start": 12.04,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 12.36,
+        "start": 12.24,
+        "text": "a",
+        "words": [
+          {
+            "end": 12.36,
+            "start": 12.24,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 12.54,
+        "start": 12.36,
+        "text": "rare",
+        "words": [
+          {
+            "end": 12.54,
+            "start": 12.36,
+            "word": "rare"
+          }
+        ]
+      },
+      {
+        "end": 14.34,
+        "start": 12.54,
+        "text": "dish.",
+        "words": [
+          {
+            "end": 14.34,
+            "start": 12.54,
+            "word": "dish."
+          }
+        ]
+      },
+      {
+        "end": 14.54,
+        "start": 14.34,
+        "text": "Rice",
+        "words": [
+          {
+            "end": 14.54,
+            "start": 14.34,
+            "word": "Rice"
+          }
+        ]
+      },
+      {
+        "end": 14.8,
+        "start": 14.54,
+        "text": "is",
+        "words": [
+          {
+            "end": 14.8,
+            "start": 14.54,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 11.18,
+        "start": 10.78,
+        "text": "These",
+        "words": [
+          {
+            "end": 11.18,
+            "start": 10.78,
+            "word": "These"
+          }
+        ]
+      },
+      {
+        "end": 11.44,
+        "start": 11.18,
+        "text": "days",
+        "words": [
+          {
+            "end": 11.44,
+            "start": 11.18,
+            "word": "days"
+          }
+        ]
+      },
+      {
+        "end": 11.62,
+        "start": 11.44,
+        "text": "a",
+        "words": [
+          {
+            "end": 11.62,
+            "start": 11.44,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 11.82,
+        "start": 11.62,
+        "text": "chicken",
+        "words": [
+          {
+            "end": 11.82,
+            "start": 11.62,
+            "word": "chicken"
+          }
+        ]
+      },
+      {
+        "end": 12.04,
+        "start": 11.82,
+        "text": "leg",
+        "words": [
+          {
+            "end": 12.04,
+            "start": 11.82,
+            "word": "leg"
+          }
+        ]
+      },
+      {
+        "end": 12.24,
+        "start": 12.04,
+        "text": "is",
+        "words": [
+          {
+            "end": 12.24,
+            "start": 12.04,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 12.36,
+        "start": 12.24,
+        "text": "a",
+        "words": [
+          {
+            "end": 12.36,
+            "start": 12.24,
+            "word": "a"
+          }
+        ]
+      },
+      {
+        "end": 12.56,
+        "start": 12.36,
+        "text": "rare",
+        "words": [
+          {
+            "end": 12.56,
+            "start": 12.36,
+            "word": "rare"
+          }
+        ]
+      },
+      {
+        "end": 14.38,
+        "start": 12.56,
+        "text": "dish.",
+        "words": [
+          {
+            "end": 14.38,
+            "start": 12.56,
+            "word": "dish."
+          }
+        ]
+      },
+      {
+        "end": 14.54,
+        "start": 14.38,
+        "text": "Rice",
+        "words": [
+          {
+            "end": 14.54,
+            "start": 14.38,
+            "word": "Rice"
+          }
+        ]
+      },
+      {
+        "end": 14.8,
+        "start": 14.54,
+        "text": "is",
+        "words": [
+          {
+            "end": 14.8,
+            "start": 14.54,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 15.12,
+        "start": 14.8,
+        "text": "often",
+        "words": [
+          {
+            "end": 15.12,
+            "start": 14.8,
+            "word": "often"
+          }
+        ]
+      },
+      {
+        "end": 15.38,
+        "start": 15.12,
+        "text": "served",
+        "words": [
+          {
+            "end": 15.38,
+            "start": 15.12,
+            "word": "served"
+          }
+        ]
+      },
+      {
+        "end": 15.64,
+        "start": 15.38,
+        "text": "in",
+        "words": [
+          {
+            "end": 15.64,
+            "start": 15.38,
+            "word": "in"
+          }
+        ]
+      },
+      {
+        "end": 15.86,
+        "start": 15.64,
+        "text": "round",
+        "words": [
+          {
+            "end": 15.86,
+            "start": 15.64,
+            "word": "round"
+          }
+        ]
+      },
+      {
+        "end": 17.5,
+        "start": 15.86,
+        "text": "bowls.",
+        "words": [
+          {
+            "end": 17.5,
+            "start": 15.86,
+            "word": "bowls."
+          }
+        ]
+      },
+      {
+        "end": 17.56,
+        "start": 17.5,
+        "text": "The",
+        "words": [
+          {
+            "end": 17.56,
+            "start": 17.5,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 17.76,
+        "start": 17.56,
+        "text": "juice",
+        "words": [
+          {
+            "end": 17.76,
+            "start": 17.56,
+            "word": "juice"
+          }
+        ]
+      },
+      {
+        "end": 18.0,
+        "start": 17.76,
+        "text": "of",
+        "words": [
+          {
+            "end": 18.0,
+            "start": 17.76,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 18.26,
+        "start": 18.0,
+        "text": "lemon",
+        "words": [
+          {
+            "end": 18.26,
+            "start": 18.0,
+            "word": "lemon"
+          }
+        ]
+      },
+      {
+        "end": 18.58,
+        "start": 18.26,
+        "text": "makes",
+        "words": [
+          {
+            "end": 18.58,
+            "start": 18.26,
+            "word": "makes"
+          }
+        ]
+      },
+      {
+        "end": 18.98,
+        "start": 18.58,
+        "text": "fine",
+        "words": [
+          {
+            "end": 18.98,
+            "start": 18.58,
+            "word": "fine"
+          }
+        ]
+      },
+      {
+        "end": 15.42,
+        "start": 15.0,
+        "text": "served",
+        "words": [
+          {
+            "end": 15.42,
+            "start": 15.0,
+            "word": "served"
+          }
+        ]
+      },
+      {
+        "end": 15.64,
+        "start": 15.42,
+        "text": "in",
+        "words": [
+          {
+            "end": 15.64,
+            "start": 15.42,
+            "word": "in"
+          }
+        ]
+      },
+      {
+        "end": 15.88,
+        "start": 15.64,
+        "text": "round",
+        "words": [
+          {
+            "end": 15.88,
+            "start": 15.64,
+            "word": "round"
+          }
+        ]
+      },
+      {
+        "end": 17.54,
+        "start": 15.88,
+        "text": "bowls.",
+        "words": [
+          {
+            "end": 17.54,
+            "start": 15.88,
+            "word": "bowls."
+          }
+        ]
+      },
+      {
+        "end": 17.54,
+        "start": 17.54,
+        "text": "The",
+        "words": [
+          {
+            "end": 17.54,
+            "start": 17.54,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 17.78,
+        "start": 17.54,
+        "text": "juice",
+        "words": [
+          {
+            "end": 17.78,
+            "start": 17.54,
+            "word": "juice"
+          }
+        ]
+      },
+      {
+        "end": 18.02,
+        "start": 17.78,
+        "text": "of",
+        "words": [
+          {
+            "end": 18.02,
+            "start": 17.78,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 18.28,
+        "start": 18.02,
+        "text": "lemon",
+        "words": [
+          {
+            "end": 18.28,
+            "start": 18.02,
+            "word": "lemon"
+          }
+        ]
+      },
+      {
+        "end": 18.6,
+        "start": 18.28,
+        "text": "makes",
+        "words": [
+          {
+            "end": 18.6,
+            "start": 18.28,
+            "word": "makes"
+          }
+        ]
+      },
+      {
+        "end": 19.0,
+        "start": 18.6,
+        "text": "fine",
+        "words": [
+          {
+            "end": 19.0,
+            "start": 18.6,
+            "word": "fine"
+          }
+        ]
+      },
+      {
+        "end": 20.6,
+        "start": 19.0,
+        "text": "punch.",
+        "words": [
+          {
+            "end": 20.6,
+            "start": 19.0,
+            "word": "punch."
+          }
+        ]
+      },
+      {
+        "end": 20.64,
+        "start": 20.6,
+        "text": "The",
+        "words": [
+          {
+            "end": 20.64,
+            "start": 20.6,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 20.9,
+        "start": 20.64,
+        "text": "box",
+        "words": [
+          {
+            "end": 20.9,
+            "start": 20.64,
+            "word": "box"
+          }
+        ]
+      },
+      {
+        "end": 21.16,
+        "start": 20.9,
+        "text": "was",
+        "words": [
+          {
+            "end": 21.16,
+            "start": 20.9,
+            "word": "was"
+          }
+        ]
+      },
+      {
+        "end": 21.38,
+        "start": 21.16,
+        "text": "thrown",
+        "words": [
+          {
+            "end": 21.38,
+            "start": 21.16,
+            "word": "thrown"
+          }
+        ]
+      },
+      {
+        "end": 21.72,
+        "start": 21.38,
+        "text": "beside",
+        "words": [
+          {
+            "end": 21.72,
+            "start": 21.38,
+            "word": "beside"
+          }
+        ]
+      },
+      {
+        "end": 22.08,
+        "start": 21.72,
+        "text": "the",
+        "words": [
+          {
+            "end": 22.08,
+            "start": 21.72,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 22.18,
+        "start": 22.08,
+        "text": "pork",
+        "words": [
+          {
+            "end": 22.18,
+            "start": 22.08,
+            "word": "pork"
+          }
+        ]
+      },
+      {
+        "end": 23.82,
+        "start": 22.18,
+        "text": "chuck.",
+        "words": [
+          {
+            "end": 23.82,
+            "start": 22.18,
+            "word": "chuck."
+          }
+        ]
+      },
+      {
+        "end": 23.98,
+        "start": 23.82,
+        "text": "The",
+        "words": [
+          {
+            "end": 23.98,
+            "start": 23.82,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 24.34,
+        "start": 23.98,
+        "text": "hogs",
+        "words": [
+          {
+            "end": 24.34,
+            "start": 23.98,
+            "word": "hogs"
+          }
+        ]
+      },
+      {
+        "end": 24.44,
+        "start": 24.34,
+        "text": "were",
+        "words": [
+          {
+            "end": 24.44,
+            "start": 24.34,
+            "word": "were"
+          }
+        ]
+      },
+      {
+        "end": 24.64,
+        "start": 24.44,
+        "text": "fed",
+        "words": [
+          {
+            "end": 24.64,
+            "start": 24.44,
+            "word": "fed"
+          }
+        ]
+      },
+      {
+        "end": 20.64,
+        "start": 20.34,
+        "text": "The",
+        "words": [
+          {
+            "end": 20.64,
+            "start": 20.34,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 20.92,
+        "start": 20.64,
+        "text": "box",
+        "words": [
+          {
+            "end": 20.92,
+            "start": 20.64,
+            "word": "box"
+          }
+        ]
+      },
+      {
+        "end": 21.14,
+        "start": 20.92,
+        "text": "was",
+        "words": [
+          {
+            "end": 21.14,
+            "start": 20.92,
+            "word": "was"
+          }
+        ]
+      },
+      {
+        "end": 21.38,
+        "start": 21.14,
+        "text": "thrown",
+        "words": [
+          {
+            "end": 21.38,
+            "start": 21.14,
+            "word": "thrown"
+          }
+        ]
+      },
+      {
+        "end": 21.7,
+        "start": 21.38,
+        "text": "beside",
+        "words": [
+          {
+            "end": 21.7,
+            "start": 21.38,
+            "word": "beside"
+          }
+        ]
+      },
+      {
+        "end": 22.08,
+        "start": 21.7,
+        "text": "the",
+        "words": [
+          {
+            "end": 22.08,
+            "start": 21.7,
+            "word": "the"
+          }
+        ]
+      },
+      {
+        "end": 22.16,
+        "start": 22.08,
+        "text": "pork",
+        "words": [
+          {
+            "end": 22.16,
+            "start": 22.08,
+            "word": "pork"
+          }
+        ]
+      },
+      {
+        "end": 23.86,
+        "start": 22.16,
+        "text": "chuck.",
+        "words": [
+          {
+            "end": 23.86,
+            "start": 22.16,
+            "word": "chuck."
+          }
+        ]
+      },
+      {
+        "end": 23.96,
+        "start": 23.86,
+        "text": "The",
+        "words": [
+          {
+            "end": 23.96,
+            "start": 23.86,
+            "word": "The"
+          }
+        ]
+      },
+      {
+        "end": 24.32,
+        "start": 23.96,
+        "text": "hogs",
+        "words": [
+          {
+            "end": 24.32,
+            "start": 23.96,
+            "word": "hogs"
+          }
+        ]
+      },
+      {
+        "end": 24.44,
+        "start": 24.32,
+        "text": "were",
+        "words": [
+          {
+            "end": 24.44,
+            "start": 24.32,
+            "word": "were"
+          }
+        ]
+      },
+      {
+        "end": 24.62,
+        "start": 24.44,
+        "text": "fed",
+        "words": [
+          {
+            "end": 24.62,
+            "start": 24.44,
+            "word": "fed"
+          }
+        ]
+      },
+      {
+        "end": 24.96,
+        "start": 24.62,
+        "text": "chopped",
+        "words": [
+          {
+            "end": 24.96,
+            "start": 24.62,
+            "word": "chopped"
+          }
+        ]
+      },
+      {
+        "end": 25.24,
+        "start": 24.96,
+        "text": "corn",
+        "words": [
+          {
+            "end": 25.24,
+            "start": 24.96,
+            "word": "corn"
+          }
+        ]
+      },
+      {
+        "end": 25.4,
+        "start": 25.24,
+        "text": "and",
+        "words": [
+          {
+            "end": 25.4,
+            "start": 25.24,
+            "word": "and"
+          }
+        ]
+      },
+      {
+        "end": 27.22,
+        "start": 25.4,
+        "text": "garbage.",
+        "words": [
+          {
+            "end": 27.22,
+            "start": 25.4,
+            "word": "garbage."
+          }
+        ]
+      },
+      {
+        "end": 27.38,
+        "start": 27.22,
+        "text": "Four",
+        "words": [
+          {
+            "end": 27.38,
+            "start": 27.22,
+            "word": "Four"
+          }
+        ]
+      },
+      {
+        "end": 27.7,
+        "start": 27.38,
+        "text": "hours",
+        "words": [
+          {
+            "end": 27.7,
+            "start": 27.38,
+            "word": "hours"
+          }
+        ]
+      },
+      {
+        "end": 27.88,
+        "start": 27.7,
+        "text": "of",
+        "words": [
+          {
+            "end": 27.88,
+            "start": 27.7,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 28.0,
+        "start": 27.88,
+        "text": "steady",
+        "words": [
+          {
+            "end": 28.0,
+            "start": 27.88,
+            "word": "steady"
+          }
+        ]
+      },
+      {
+        "end": 28.32,
+        "start": 28.0,
+        "text": "work",
+        "words": [
+          {
+            "end": 28.32,
+            "start": 28.0,
+            "word": "work"
+          }
+        ]
+      },
+      {
+        "end": 28.64,
+        "start": 28.32,
+        "text": "faced",
+        "words": [
+          {
+            "end": 28.64,
+            "start": 28.32,
+            "word": "faced"
+          }
+        ]
+      },
+      {
+        "end": 25.34,
+        "start": 25.0,
+        "text": "and",
+        "words": [
+          {
+            "end": 25.34,
+            "start": 25.0,
+            "word": "and"
+          }
+        ]
+      },
+      {
+        "end": 27.2,
+        "start": 25.34,
+        "text": "garbage.",
+        "words": [
+          {
+            "end": 27.2,
+            "start": 25.34,
+            "word": "garbage."
+          }
+        ]
+      },
+      {
+        "end": 27.36,
+        "start": 27.2,
+        "text": "Four",
+        "words": [
+          {
+            "end": 27.36,
+            "start": 27.2,
+            "word": "Four"
+          }
+        ]
+      },
+      {
+        "end": 27.68,
+        "start": 27.36,
+        "text": "hours",
+        "words": [
+          {
+            "end": 27.68,
+            "start": 27.36,
+            "word": "hours"
+          }
+        ]
+      },
+      {
+        "end": 27.88,
+        "start": 27.68,
+        "text": "of",
+        "words": [
+          {
+            "end": 27.88,
+            "start": 27.68,
+            "word": "of"
+          }
+        ]
+      },
+      {
+        "end": 28.02,
+        "start": 27.88,
+        "text": "steady",
+        "words": [
+          {
+            "end": 28.02,
+            "start": 27.88,
+            "word": "steady"
+          }
+        ]
+      },
+      {
+        "end": 28.32,
+        "start": 28.02,
+        "text": "work",
+        "words": [
+          {
+            "end": 28.32,
+            "start": 28.02,
+            "word": "work"
+          }
+        ]
+      },
+      {
+        "end": 28.62,
+        "start": 28.32,
+        "text": "faced",
+        "words": [
+          {
+            "end": 28.62,
+            "start": 28.32,
+            "word": "faced"
+          }
+        ]
+      },
+      {
+        "end": 30.24,
+        "start": 28.62,
+        "text": "us.",
+        "words": [
+          {
+            "end": 30.24,
+            "start": 28.62,
+            "word": "us."
+          }
+        ]
+      },
+      {
+        "end": 30.32,
+        "start": 30.24,
+        "text": "A",
+        "words": [
+          {
+            "end": 30.32,
+            "start": 30.24,
+            "word": "A"
+          }
+        ]
+      },
+      {
+        "end": 30.52,
+        "start": 30.32,
+        "text": "large",
+        "words": [
+          {
+            "end": 30.52,
+            "start": 30.32,
+            "word": "large"
+          }
+        ]
+      },
+      {
+        "end": 30.78,
+        "start": 30.52,
+        "text": "size",
+        "words": [
+          {
+            "end": 30.78,
+            "start": 30.52,
+            "word": "size"
+          }
+        ]
+      },
+      {
+        "end": 31.0,
+        "start": 30.78,
+        "text": "in",
+        "words": [
+          {
+            "end": 31.0,
+            "start": 30.78,
+            "word": "in"
+          }
+        ]
+      },
+      {
+        "end": 31.36,
+        "start": 31.0,
+        "text": "stockings",
+        "words": [
+          {
+            "end": 31.36,
+            "start": 31.0,
+            "word": "stockings"
+          }
+        ]
+      },
+      {
+        "end": 31.54,
+        "start": 31.36,
+        "text": "is",
+        "words": [
+          {
+            "end": 31.54,
+            "start": 31.36,
+            "word": "is"
+          }
+        ]
+      },
+      {
+        "end": 31.78,
+        "start": 31.54,
+        "text": "hard",
+        "words": [
+          {
+            "end": 31.78,
+            "start": 31.54,
+            "word": "hard"
+          }
+        ]
+      },
+      {
+        "end": 32.0,
+        "start": 31.78,
+        "text": "to",
+        "words": [
+          {
+            "end": 32.0,
+            "start": 31.78,
+            "word": "to"
+          }
+        ]
+      }
+    ],
+    "version": 1
+  }
+}
