@@ -147,6 +147,11 @@ jobs:
       # --config vite.electron.config.ts → electron-builder --mac`
       # with the APP_VERSION literal pulled from electron/constants.ts.
       #
+      # electron-builder.json sets `"publish": null` (plain JSON — not JSON5,
+      # so the "why" lives here). On a tag push, electron-builder otherwise
+      # tries implicit GitHub publishing and requires GH_TOKEN; we attach the
+      # notarized DMG in "Attach DMG to GitHub Release" below instead.
+      #
       # CSC_* env vars are picked up by electron-builder automatically:
       # it imports the .p12 into a temporary keychain and signs the
       # .app with the Developer ID Application identity. We do NOT
