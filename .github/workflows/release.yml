@@ -20,28 +20,34 @@ on:
 # explicitly via `env:` so the dependency is visible at the call
 # site rather than buried in implicit defaults.
 #
-#   CSC_LINK                      base64-encoded .p12 of the Developer
-#                                 ID Application cert + private key.
-#                                 electron-builder reads this env var
-#                                 by convention, imports the cert into
-#                                 a temporary keychain, and uses it to
-#                                 sign the .app + dmg.
+# Secret names mirror those used by the sqlitebrowser doltlite
+# release workflow so the same values can be shared across both
+# repos without redefining them — see also
+# ../../scripts/build-released-app.sh for the local-dev equivalents.
 #
-#   CSC_KEY_PASSWORD              password used when exporting the .p12.
+#   MACOS_CODESIGN_P12             base64-encoded .p12 of the Developer
+#                                  ID Application cert + private key.
+#                                  Re-exposed below as CSC_LINK, which
+#                                  electron-builder reads by convention
+#                                  and uses to import the cert into a
+#                                  temporary keychain for signing.
 #
-#   APPLE_ID                      Apple ID email tied to the developer
-#                                 account that issued the cert.
+#   MACOS_CODESIGN_P12_PW          password used when exporting the .p12.
+#                                  Re-exposed below as CSC_KEY_PASSWORD.
 #
-#   APPLE_APP_SPECIFIC_PASSWORD   App-specific password generated at
-#                                 appleid.apple.com → Sign-In and
-#                                 Security → App-Specific Passwords.
-#                                 Used by xcrun notarytool.
+#   MACOS_CODESIGN_APPLE_ID        Apple ID email tied to the developer
+#                                  account that issued the cert.
 #
-#   APPLE_TEAM_ID                 Apple developer team id. Currently
-#                                 hardcoded as "RWVMRK3723" in
-#                                 scripts/build-released-app.sh; we
-#                                 mirror that here as a default and
-#                                 allow a secret override for forks.
+#   MACOS_CODESIGN_APPLE_PW        App-specific password generated at
+#                                  appleid.apple.com → Sign-In and
+#                                  Security → App-Specific Passwords.
+#                                  Used by xcrun notarytool.
+#
+#   MACOS_CODESIGN_TEAM_ID         Apple developer team id (10-char).
+#                                  Currently hardcoded as "RWVMRK3723"
+#                                  in scripts/build-released-app.sh; we
+#                                  mirror that as the default below and
+#                                  allow a secret override for forks.
 
 jobs:
   build-and-publish:
@@ -151,8 +157,8 @@ jobs:
       - name: Build & sign macOS app
         run: npm run package:mac
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.MACOS_CODESIGN_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CODESIGN_P12_PW }}
           # electron-builder's notarize hook is disabled — we do it
           # manually below. Setting this to false is harmless either
           # way; it just makes the intent loud.
@@ -200,12 +206,12 @@ jobs:
           # arm64 dmg and zip; only the dmg is what users download.
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_ENV"
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.MACOS_CODESIGN_APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MACOS_CODESIGN_APPLE_PW }}
           # Default to the team id baked into
           # scripts/build-released-app.sh; allow a secret override
           # so forks don't have to patch the workflow.
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || 'RWVMRK3723' }}
+          APPLE_TEAM_ID: ${{ secrets.MACOS_CODESIGN_TEAM_ID || 'RWVMRK3723' }}
 
       # Keep the artifact for 7 days regardless of release flow —
       # useful for workflow_dispatch runs that don't have a tag to
