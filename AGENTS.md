@@ -40,6 +40,6 @@ bazelisk run //:e2e_playwright_bin
 bazelisk run //:e2e_playwright_expensive_bin
 ```
 
-Requires `npm install` once (source-tree `node_modules`). The wrapper runs `build:all`, `build:rust`, and `verify:dist-rust` (includes bundled `ffmpeg`) before Playwright.
+Requires `npm install` once (source-tree `node_modules`). The wrapper runs `build:all`, `build:rust`, and `verify:dist-rust` (includes bundled `ffmpeg`) before Playwright. `build:ffmpeg` uses `python3 scripts/stage-ffmpeg.py` (ffmpeg on PATH or imageio-ffmpeg if installed in that Python).
 
 npm equivalents: `npm run test:e2e` (default), `npm run test:e2e:expensive`.
