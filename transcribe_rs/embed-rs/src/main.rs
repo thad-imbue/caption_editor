@@ -66,6 +66,12 @@ struct Args {
     /// Disable UMAP entirely.
     #[clap(long, conflicts_with = "umap_dimensions")]
     no_umap: bool,
+    /// Pre-converted 16 kHz mono WAV to use instead of re-running ffmpeg
+    /// on the media file. Set by transcribe-rs when it auto-chains the
+    /// embed step (it already has the WAV from the ASR pass). Saves a
+    /// ~30 s ffmpeg pass on long files.
+    #[clap(long, value_name = "PATH")]
+    cached_wav: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -77,12 +83,23 @@ fn main() -> Result<()> {
     let mut document: CaptionsDocument =
         parse_captions_json5(&content).map_err(|e| eyre!("parse captions json5: {e}"))?;
 
-    let media_path = resolve_media_path(&args.captions_path, &document)?;
-    eprintln!("Media file: {}", media_path.display());
-    eprintln!("Found {} segments", document.segments.len());
-
+    // Hold tempdir alive past the WAV read even when we don't use it
+    // (the cached-wav branch points at the caller's file). With
+    // --cached-wav we skip the media file resolve entirely — embed-rs is
+    // sometimes invoked from a directory where the captions's relative
+    // mediaFilePath wouldn't resolve, but the caller has already done
+    // the conversion for us.
     let temp_dir = tempfile::tempdir()?;
-    let wav_path = ensure_wav(&media_path, &temp_dir)?;
+    let wav_path = if let Some(p) = args.cached_wav.as_ref() {
+        eprintln!("Found {} segments", document.segments.len());
+        eprintln!("Using cached WAV: {}", p.display());
+        p.clone()
+    } else {
+        let media_path = resolve_media_path(&args.captions_path, &document)?;
+        eprintln!("Media file: {}", media_path.display());
+        eprintln!("Found {} segments", document.segments.len());
+        ensure_wav(&media_path, &temp_dir)?
+    };
 
     eprintln!("Loading embedding model: {}", args.model);
     let model_onnx = resolve_wespeaker_onnx(&args.model)?;
@@ -97,8 +114,22 @@ fn main() -> Result<()> {
         ));
     }
 
+    // Count up-front so progress percentages reflect work actually done
+    // (rather than denominator = total segments, which is misleading when
+    // many are too short to embed).
+    let total_segments = document.segments.len();
+    let embeddable: usize = document
+        .segments
+        .iter()
+        .filter(|s| (s.end_time - s.start_time) >= args.min_segment_duration)
+        .count();
+    eprintln!("Embedding {embeddable}/{total_segments} segments (skipping {} too short)...", total_segments - embeddable);
+
     let mut embeddings_out: Vec<SegmentSpeakerEmbedding> = Vec::new();
     let mut skipped = 0usize;
+    let start_wall = std::time::Instant::now();
+    let mut last_log_pct: i32 = -1;
+    let mut last_log_time = start_wall;
     for seg in &document.segments {
         let dur = seg.end_time - seg.start_time;
         if dur < args.min_segment_duration {
@@ -115,10 +146,32 @@ fn main() -> Result<()> {
             speaker_embedding: encode_embedding(&emb),
             umap_embeddings: None,
         });
+
+        // Throttled progress: emit on each 10% milestone OR every 2 seconds,
+        // whichever comes first. Skip spam for short runs where the whole
+        // pass finishes before the first throttle fires.
+        let done = embeddings_out.len();
+        let pct = (done as u64 * 100 / embeddable.max(1) as u64) as i32;
+        let now = std::time::Instant::now();
+        let since_last = now.duration_since(last_log_time).as_secs_f64();
+        let milestone = pct >= last_log_pct + 10;
+        if (milestone && since_last >= 1.0) || since_last >= 2.0 {
+            let elapsed = start_wall.elapsed().as_secs_f64();
+            let eta = if done < embeddable {
+                format!(", ETA {:.0}s", (elapsed / done as f64) * (embeddable - done) as f64)
+            } else {
+                String::new()
+            };
+            eprintln!("  segment {done}/{embeddable} ({pct}%, elapsed {elapsed:.1}s{eta})");
+            last_log_pct = pct;
+            last_log_time = now;
+        }
     }
+    let total_elapsed = start_wall.elapsed().as_secs_f64();
     eprintln!(
-        "Embedded {} segments, skipped {} (too short)",
+        "Embedded {} segments in {:.1}s, skipped {} (too short)",
         embeddings_out.len(),
+        total_elapsed,
         skipped
     );
 

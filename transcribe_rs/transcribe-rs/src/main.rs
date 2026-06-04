@@ -224,14 +224,18 @@ fn main() -> Result<()> {
     eprintln!("Wrote {} segments to {}", doc.segments.len(), output.display());
 
     if !args.no_embed {
-        run_embed_step(&output, &args)?;
+        // Hand embed-rs the already-converted 16 kHz mono WAV so it
+        // skips the (~30 s on long files) ffmpeg re-pass. temp_dir is
+        // still in scope here, so wav_path stays valid for the subprocess.
+        run_embed_step(&output, &args, &wav_path)?;
     }
     Ok(())
 }
 
 /// Run `embed-rs` against the freshly-written captions file, matching Python
-/// transcribe_cli's `--embed` default-on behavior.
-fn run_embed_step(captions_path: &Path, args: &Args) -> Result<()> {
+/// transcribe_cli's `--embed` default-on behavior. Passes the pre-converted
+/// WAV via `--cached-wav` so embed-rs reuses it instead of re-encoding.
+fn run_embed_step(captions_path: &Path, args: &Args, cached_wav: &Path) -> Result<()> {
     let bin = resolve_embed_bin(args.embed_bin.as_deref())?;
     eprintln!("Auto-embedding via {} ...", bin.display());
     let status = Command::new(&bin)
@@ -241,6 +245,7 @@ fn run_embed_step(captions_path: &Path, args: &Args) -> Result<()> {
             "--min-segment-duration",
             &args.min_segment_duration.to_string(),
         ])
+        .args(["--cached-wav", &cached_wav.to_string_lossy()])
         .status()
         .with_context(|| format!("spawn {}", bin.display()))?;
     if !status.success() {
@@ -434,6 +439,7 @@ fn transcribe_chunked(
 
     let num_chunks = ((duration - overlap as f64) / stride).ceil().max(1.0) as usize;
     eprintln!("Transcribing {num_chunks} chunks (~{duration:.1}s of audio)...");
+    let start_wall = std::time::Instant::now();
 
     for i in 0..num_chunks {
         let chunk_start_s = i as f64 * stride;
@@ -447,11 +453,34 @@ fn transcribe_chunked(
             continue;
         }
         let slice = samples[start_idx..end_idx].to_vec();
-        eprintln!("  chunk {}/{}: [{:.1}s, {:.1}s)", i + 1, num_chunks, chunk_start_s, chunk_end_s);
 
         let segs = recognizer.transcribe_chunk(slice, sample_rate, channels, chunk_start_s)?;
         all.extend(segs);
+
+        // Report after each chunk: audio % covered, wall-clock elapsed, ETA
+        // (extrapolated from avg chunk time so far). Log after the chunk
+        // finishes so the displayed elapsed/ETA reflect real decode time.
+        let chunks_done = i + 1;
+        let elapsed = start_wall.elapsed().as_secs_f64();
+        let pct = (chunk_end_s / duration * 100.0).min(100.0);
+        let eta = if chunks_done < num_chunks {
+            let avg = elapsed / chunks_done as f64;
+            format!(", ETA {:.0}s", avg * (num_chunks - chunks_done) as f64)
+        } else {
+            String::new()
+        };
+        eprintln!(
+            "  chunk {chunks_done}/{num_chunks} [{:.1}s-{:.1}s] ({pct:.0}% audio, elapsed {elapsed:.1}s{eta})",
+            chunk_start_s, chunk_end_s,
+        );
     }
+    let total_elapsed = start_wall.elapsed().as_secs_f64();
+    eprintln!(
+        "Transcription complete: {:.1}s of audio in {:.1}s ({:.1}× realtime).",
+        duration,
+        total_elapsed,
+        duration / total_elapsed.max(0.001)
+    );
     Ok(all)
 }
 
