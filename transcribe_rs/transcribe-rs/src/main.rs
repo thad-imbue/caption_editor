@@ -30,6 +30,7 @@ use eyre::{eyre, Context, Result};
 use hf_hub::api::sync::ApiBuilder;
 use parakeet_rs::{ParakeetTDT, TimestampMode, Transcriber};
 
+mod download;
 mod parakeet_grouping;
 mod recognizer;
 mod whisper_recognizer;
@@ -627,16 +628,19 @@ fn download_parakeet_onnx(model_id: &str) -> Result<PathBuf> {
     // each file separately under the snapshot dir; pulling any of them
     // returns the snapshot path of *that file*, and the snapshot dir is
     // shared across files of the same revision.
+    //
+    // We pull the sidecar `.onnx.data` first because it's the bulk of the
+    // download (~600 MB encoder weights) — getting the visible progress
+    // bar on the biggest file is what matters for UX. The other three are
+    // small and finish near-instantly.
     let mut snapshot_dir: Option<PathBuf> = None;
+    // istupakov's repo ships the encoder weights as a sidecar `.onnx.data`;
+    // older revisions may skip it, so tolerate absence (continue if missing).
+    let _ = download::fetch_with_log(&api, model_id, "encoder-model.onnx.data");
     for name in ["encoder-model.onnx", "decoder_joint-model.onnx", "vocab.txt"] {
-        let p = api
-            .get(name)
-            .map_err(|e| eyre!("hf-hub get {name}: {e}"))?;
+        let p = download::fetch_with_log(&api, model_id, name)?;
         snapshot_dir = Some(p.parent().unwrap().to_path_buf());
     }
-    // istupakov's repo ships the encoder weights as a sidecar `.onnx.data` —
-    // try to fetch but tolerate absence (older revisions skipped it).
-    let _ = api.get("encoder-model.onnx.data");
 
     snapshot_dir.ok_or_else(|| eyre!("no ONNX files resolved from {model_id}"))
 }

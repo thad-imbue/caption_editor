@@ -236,6 +236,6 @@ fn fetch_from_hf(repo: &str, filename: &str) -> Result<PathBuf> {
         .build()
         .map_err(|e| eyre!("hf-hub init: {e}"))?
         .model(repo.to_string());
-    api.get(filename)
+    crate::download::fetch_with_log(&api, repo, filename)
         .with_context(|| format!("hf-hub get {repo}:{filename}"))
 }
