@@ -154,8 +154,13 @@ eslint_bin.eslint_test(
 #     handles that the same way mixed_up_files/frankweiler/ui/run_e2e.sh
 #     does (rsync -L into a tempdir).
 #
-# `bazel run  //:e2e_playwright`        — interactive (uses source tree)
-# `bazel test //:e2e_playwright`        — hermetic node_modules via runfiles
+# `bazel test //:e2e_playwright`              — UI/platform e2e (skips @expensive)
+# `bazel test //:e2e_playwright_expensive`    — ASR/ML e2e (manual; downloads models)
+# `bazel run  //:e2e_playwright_bin`          — interactive; same filter as default test
+# `bazel run  //:e2e_playwright_expensive_bin` — interactive expensive suite
+#
+# Test selection is via Playwright `--grep` / `--grep-invert` args on each
+# target — not SKIP_EXPENSIVE_TESTS / RUN_E2E_ASR env vars.
 # -----------------------------------------------------------------------------
 # e2e_playwright stays non-hermetic (see run_playwright.sh for why) so
 # it doesn't pull the bazel-linked `:node_modules` — only the source
@@ -174,9 +179,30 @@ _E2E_DATA = _TS_CONFIG + _TS_SRCS + _TS_TEST_SRCS + [
 
 _E2E_DEPS = ["//tools/bazel:runfiles"]
 
+_E2E_ENV_INHERIT = [
+    "PATH",
+    "HOME",
+    "DISPLAY",
+    "HEADLESS",
+]
+
+_E2E_TAGS = [
+    "no-sandbox",
+    "requires-network",
+]
+
 sh_binary(
     name = "e2e_playwright_bin",
     srcs = ["//tools/bazel:run_playwright.sh"],
+    args = ["--grep-invert", "@expensive"],
+    data = _E2E_DATA,
+    deps = _E2E_DEPS,
+)
+
+sh_binary(
+    name = "e2e_playwright_expensive_bin",
+    srcs = ["//tools/bazel:run_playwright.sh"],
+    args = ["--grep", "@expensive"],
     data = _E2E_DATA,
     deps = _E2E_DEPS,
 )
@@ -184,18 +210,24 @@ sh_binary(
 sh_test(
     name = "e2e_playwright",
     srcs = ["//tools/bazel:run_playwright.sh"],
+    args = ["--grep-invert", "@expensive"],
     data = _E2E_DATA,
     deps = _E2E_DEPS,
-    env_inherit = [
-        "PATH",
-        "HOME",
-        # Linux Xvfb display + headless flag for the test runner.
-        "DISPLAY",
-        "HEADLESS",
-    ],
-    tags = [
-        "no-sandbox",
-        "requires-network",
+    env_inherit = _E2E_ENV_INHERIT,
+    tags = _E2E_TAGS,
+    timeout = "eternal",
+)
+
+sh_test(
+    name = "e2e_playwright_expensive",
+    srcs = ["//tools/bazel:run_playwright.sh"],
+    args = ["--grep", "@expensive"],
+    data = _E2E_DATA,
+    deps = _E2E_DEPS,
+    env_inherit = _E2E_ENV_INHERIT,
+    tags = _E2E_TAGS + [
+        "manual",
+        "expensive",
     ],
     timeout = "eternal",
 )

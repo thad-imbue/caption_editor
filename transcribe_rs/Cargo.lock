@@ -215,18 +215,19 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "caption-core"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "caption-schema",
  "insta",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
 [[package]]
 name = "caption-schema"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "base64 0.22.1",
  "json5",
@@ -599,8 +600,9 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
 name = "embed-rs-cli"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
+ "caption-core",
  "caption-schema",
  "clap",
  "eyre",
@@ -2634,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "transcribe-rs-cli"
-version = "1.6.6"
+version = "1.6.7"
 dependencies = [
  "caption-core",
  "caption-schema",

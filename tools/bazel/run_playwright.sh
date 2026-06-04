@@ -64,5 +64,8 @@ fi
 # the foreground on every test run and steals focus.
 export HEADLESS="${HEADLESS:-true}"
 
-echo "[bazel] cwd=$WORKSPACE HEADLESS=$HEADLESS exec: npm run test:e2e $*" >&2
-exec npm run test:e2e -- "$@"
+echo "[bazel] cwd=$WORKSPACE HEADLESS=$HEADLESS — build app + dist-rust, then playwright test $*" >&2
+npm run build:all
+npm run build:rust
+npm run verify:dist-rust
+exec npx playwright test "$@"

@@ -14,12 +14,14 @@
 //!                   raw_asr_segments_to_raw_asr_output
 
 pub mod convert;
+pub mod ffmpeg;
 pub mod parse;
 pub mod pipeline;
 
 pub use caption_schema::{AsrSegment, WordTimestamp};
 pub use convert::{asr_segments_to_transcript_segments, raw_asr_segments_to_raw_asr_output};
 pub use parse::{parse_parakeet_raw_chunk, parse_whisper_raw_chunk};
+pub use ffmpeg::{resolve_ffmpeg, resolve_ffmpeg_from, BundledFfmpegNotFound};
 pub use pipeline::{
     group_segments_by_gap, post_process_asr_segments, post_process_raw_asr_segments,
     resolve_overlap_conflicts, split_long_segments, split_segments_by_word_gap,

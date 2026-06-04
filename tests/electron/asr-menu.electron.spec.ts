@@ -8,9 +8,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 test.describe('ASR Menu Integration @expensive', () => {
-  // Expensive test - requires downloading ML models and running transcription
-  // Skipped by default since it depends on local Python tooling (`uv`).
-  test.skip(process.env.RUN_PY_E2E !== 'true', 'Set RUN_PY_E2E=true to enable Python-dependent Electron E2E tests')
+  // Expensive — run via `bazel test //:e2e_playwright_expensive` or
+  // `npm run test:e2e:expensive` (not part of default `bazel test //...`).
   test('should run ASR transcription from menu @expensive', async () => {
     test.setTimeout(180000) // 3 minute timeout for model download + transcription
     // Create a temporary directory for test files

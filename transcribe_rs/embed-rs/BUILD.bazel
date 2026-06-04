@@ -16,6 +16,7 @@ rust_binary(
     version = APP_VERSION,
     proc_macro_deps = all_crate_deps(proc_macro = True),
     deps = all_crate_deps(normal = True) + [
+        "//transcribe_rs/caption-core:caption_core",
         "//transcribe_rs/caption-schema:caption_schema",
     ],
     visibility = ["//visibility:public"],

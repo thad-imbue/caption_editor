@@ -143,6 +143,12 @@ jobs:
       - name: Install Bazelisk
         run: brew install bazelisk
 
+      # Bundled next to transcribe-rs in Contents/Resources/bin/ (see
+      # scripts/stage-ffmpeg.py). imageio-ffmpeg is not installed in CI,
+      # so provide a system ffmpeg for `npm run build:ffmpeg`.
+      - name: Install ffmpeg for bundling
+        run: brew install ffmpeg
+
       # `npm run package:mac` runs `vue-tsc → vite build → vite build
       # --config vite.electron.config.ts → electron-builder --mac`
       # with the APP_VERSION literal pulled from electron/constants.ts.

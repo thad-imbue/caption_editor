@@ -231,7 +231,8 @@ fn normalize_path(p: &Path) -> PathBuf {
 fn ensure_wav(media: &Path, temp_dir: &tempfile::TempDir) -> Result<PathBuf> {
     eprintln!("Converting {} to 16 kHz mono WAV via ffmpeg...", media.display());
     let out_path = temp_dir.path().join("audio.wav");
-    let status = Command::new("ffmpeg")
+    let ffmpeg = caption_core::resolve_ffmpeg().map_err(eyre::Report::new)?;
+    let status = Command::new(&ffmpeg)
         .args([
             "-y",
             "-loglevel",
@@ -247,7 +248,7 @@ fn ensure_wav(media: &Path, temp_dir: &tempfile::TempDir) -> Result<PathBuf> {
             &out_path.to_string_lossy(),
         ])
         .status()
-        .context("ffmpeg not on PATH — install ffmpeg or convert input to WAV manually")?;
+        .with_context(|| format!("failed to run bundled ffmpeg at {}", ffmpeg.display()))?;
     if !status.success() {
         return Err(eyre!("ffmpeg exited with {status}"));
     }

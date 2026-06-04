@@ -11,6 +11,7 @@ name = "embed-rs"
 path = "src/main.rs"
 
 [dependencies]
+caption-core = { path = "../caption-core" }
 caption-schema = { path = "../caption-schema" }
 clap = { workspace = true }
 eyre = { workspace = true }

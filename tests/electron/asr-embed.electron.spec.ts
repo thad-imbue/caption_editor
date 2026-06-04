@@ -11,13 +11,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 test.describe('Speaker Embedding Integration @expensive', () => {
-    // Expensive test — downloads ML models on first run and exercises the
-    // full Rust ASR pipeline end-to-end. Skipped by default; opt in with
-    // RUN_E2E_ASR=true (or the legacy RUN_PY_E2E=true alias).
-    test.skip(
-        process.env.RUN_E2E_ASR !== 'true' && process.env.RUN_PY_E2E !== 'true',
-        'Set RUN_E2E_ASR=true to enable Electron ASR end-to-end tests',
-    )
+    // Expensive — run via `bazel test //:e2e_playwright_expensive` or
+    // `npm run test:e2e:expensive` (not part of default `bazel test //...`).
     test('should compute speaker embeddings via menu item @expensive', async () => {
         test.setTimeout(180000) // 3 minute timeout for model download + inference
         // Create a temporary directory for test files

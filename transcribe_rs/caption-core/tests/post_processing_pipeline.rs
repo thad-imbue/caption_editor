@@ -9,7 +9,7 @@
 //! parity check.
 //!
 //! Fixtures are embedded with `include_bytes!` so the test runs identically
-//! under `cargo test` and `bazel test` (no runfiles dance).
+//! under `bazel test` (preferred; cached) — see AGENTS.md.
 
 use caption_core::{
     parse_parakeet_raw_chunk, parse_whisper_raw_chunk, post_process_asr_segments,

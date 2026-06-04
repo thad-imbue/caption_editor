@@ -38,7 +38,7 @@ rust_test(
 # passing, the two implementations agree on the post-processing math.
 rust_test(
     # Name matches the .rs filename so insta resolves snapshot paths the
-    # same way under Bazel as under `cargo test` — insta keys snapshots by
+    # same way under `bazel test` — insta keys snapshots by
     # the test binary's crate name (`post_processing_pipeline`).
     name = "post_processing_pipeline",
     srcs = ["tests/post_processing_pipeline.rs"],

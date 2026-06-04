@@ -818,6 +818,30 @@ function resolveRustAsrPaths(): { transcribeRs: string; embedRs: string } {
 }
 
 /**
+ * Bundled ffmpeg only — never the user's PATH. Must sit next to the Rust
+ * binaries (dist-rust/ or Contents/Resources/bin/) or be set explicitly.
+ */
+function resolveBundledFfmpeg(rustBinaryPath: string): string {
+  const candidates = [
+    process.env.CAPTION_EDITOR_FFMPEG,
+    path.join(path.dirname(rustBinaryPath), 'ffmpeg'),
+    path.join(process.resourcesPath, 'bin', 'ffmpeg'),
+  ].filter((p): p is string => !!p)
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate
+    }
+  }
+
+  throw new Error(
+    `Bundled ffmpeg not found. Expected one of:\n` +
+    candidates.map((p) => `  - ${p}`).join('\n') +
+    `\nRun \`npm run build:rust\` (includes build:ffmpeg) before transcribing.`,
+  )
+}
+
+/**
  * Common helper to run ASR tools (transcribe, embed, etc.)
  */
 interface AsrResult {
@@ -900,7 +924,8 @@ async function runAsrTool(options: {
     }
   } else {
     const { transcribeRs, embedRs } = resolveRustAsrPaths()
-    pythonCommand = (script === 'transcribe_cli.py' ? transcribeRs : embedRs)
+    const rustBin = script === 'transcribe_cli.py' ? transcribeRs : embedRs
+    pythonCommand = rustBin
     pythonArgs = [inputPath]
     if (script === 'transcribe_cli.py') {
       if (chunkSize !== undefined) pythonArgs.push('--chunk-size', chunkSize.toString())
@@ -921,7 +946,16 @@ async function runAsrTool(options: {
 
   const { spawn } = await import('child_process')
   const binDir = path.join(os.homedir(), '.cache', 'caption_editor', 'bin')
-  const env = { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` }
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: existsSync(binDir)
+      ? `${binDir}${path.delimiter}${process.env.PATH || ''}`
+      : process.env.PATH,
+  }
+  if (!useLegacyPython) {
+    const rustBin = pythonCommand
+    env.CAPTION_EDITOR_FFMPEG = resolveBundledFfmpeg(rustBin)
+  }
 
   // Use a temporary directory for CWD to avoid issues with spaces in project paths 
   // (some tools like uvx might have issues with spaces in current directory)

@@ -52,6 +52,8 @@ git commit -m "Your message" --trailer "Co-authored-by: Sculptor <sculptor@imbue
 
 ## Testing
 
+**Agents:** Prefer Bazel for Rust tests — not `cargo test`. See [AGENTS.md](AGENTS.md).
+
 ### Quick Start
 
 ```bash
@@ -63,10 +65,16 @@ bazelisk coverage //transcribe/...   # Python lcov at bazel-out/_coverage/_cover
 bazelisk run //:ts_vitest_coverage   # TS unit coverage at coverage/
 bazelisk run //:ts_full_coverage     # TS unit + e2e coverage via vite-plugin-istanbul + nyc
 
+# Rust (transcribe_rs/) — use Bazel, not cargo (cached; matches CI)
+bazelisk test //transcribe_rs/caption-core:caption_core_test
+bazelisk test //transcribe_rs/caption-core:post_processing_pipeline
+
 # Inner-loop suites (no Bazel — keep host node_modules / .venv warm)
 npm test                    # Unit tests (watch mode)
 npm run test:unit           # Unit tests (once)
-npm run test:e2e            # E2E tests (auto-builds)
+bazelisk test //:e2e_playwright              # E2E default (excludes @expensive specs)
+bazelisk test //:e2e_playwright_expensive  # ASR/ML e2e (manual tag)
+npm run test:e2e            # Same default filter as //:e2e_playwright (auto-builds)
 cd transcribe && uv run pytest tests/ -v  # Python tests
 
 # Run specific test file
@@ -116,10 +124,14 @@ Saved/exported `.captions_json5` from `exportToString()` includes leading `//` h
 - Production: The signed/notarized .app bundles the
   //transcribe_rs/transcribe-rs and //transcribe_rs/embed-rs Rust
   binaries inside `Contents/Resources/bin/`. `npm run build:rust`
-  stages them under `dist-rust/`; electron-builder's `extraResources`
-  copies them into the .app, and the existing codesign+notarize+staple
-  flow signs them along with the rest of the Mach-O files in the
-  bundle. At runtime `main.ts` resolves them via `process.resourcesPath`.
+  stages them under `dist-rust/` (including `ffmpeg` via
+  `npm run build:ffmpeg` / `scripts/stage-ffmpeg.py`); electron-builder's
+  `extraResources` copies them into the .app, and the existing
+  codesign+notarize+staple flow signs them along with the rest of the
+  Mach-O files in the bundle. `transcribe-rs` / `embed-rs` use **only**
+  the staged `bin/ffmpeg` (sibling of the Rust binaries) or
+  `CAPTION_EDITOR_FFMPEG` — never the user's PATH. `npm run verify:dist-rust`
+  fails packaging/e2e if `dist-rust/ffmpeg` is missing.
 - **Rust bypass (experimental):** Set both env vars to invoke the
   //transcribe_rs/ binaries instead of Python uvx. Args are wire-compatible
   (--chunk-size, --model, --remux-mp3 forwarded as-is) so this is a drop-in
